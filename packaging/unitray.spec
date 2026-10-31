@@ -30,6 +30,10 @@ install -D -m 0644 data/%{name}.desktop %{buildroot}%{_sysconfdir}/xdg/autostart
 install -D -m 0644 data/%{name}.service %{buildroot}%{_userunitdir}/%{name}.service
 install -D -m 0644 data/49-%{name}.rules %{buildroot}%{_datadir}/polkit-1/rules.d/49-%{name}.rules
 install -D -m 0644 config/%{name}.toml %{buildroot}%{_sysconfdir}/%{name}/config.toml
+install -D -m 0644 data/%{name}.png %{buildroot}%{_datadir}/pixmaps/%{name}.png
+for s in 16 24 32 48 64 128 256 512; do
+    install -D -m 0644 data/icons/hicolor/${s}x${s}/apps/%{name}.png %{buildroot}%{_datadir}/icons/hicolor/${s}x${s}/apps/%{name}.png
+done
 
 %files
 %license LICENSE
@@ -39,6 +43,8 @@ install -D -m 0644 config/%{name}.toml %{buildroot}%{_sysconfdir}/%{name}/config
 %{_datadir}/applications/%{name}.desktop
 %{_datadir}/applications/%{name}-settings.desktop
 %{_sysconfdir}/xdg/autostart/%{name}.desktop
+%{_datadir}/pixmaps/%{name}.png
+%{_datadir}/icons/hicolor/*/apps/%{name}.png
 %{_userunitdir}/%{name}.service
 %{_datadir}/polkit-1/rules.d/49-%{name}.rules
 %config(noreplace) %{_sysconfdir}/%{name}/config.toml

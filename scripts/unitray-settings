@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QWidget,
     QCheckBox,
     QSplitter,
+    QCompleter,
 )
 
 CONFIG_DIR = Path.home() / ".config" / "unitray"
@@ -124,23 +125,41 @@ def save_config(config):
 
 
 class ServiceEditDialog(QDialog):
-    def __init__(self, parent=None, title="Custom Service", name="", unit=""):
+    def __init__(self, parent=None, title="Custom Service", name="", unit="", available_units=None):
         super().__init__(parent)
         self.setWindowTitle(title)
-        self.setMinimumWidth(380)
+        self.setMinimumWidth(440)
+        self.available_units = available_units or []
 
         layout = QVBoxLayout(self)
         form = QFormLayout()
 
-        self.name_edit = QLineEdit(name)
-        self.name_edit.setPlaceholderText("e.g. My Custom Service")
-        form.addRow("Display Name:", self.name_edit)
+        # systemd Unit first, so autocomplete guides the user!
+        self.unit_edit = QLineEdit(unit)
+        self.unit_edit.setPlaceholderText("Type to search systemd services (e.g. docker.service, mariadb)...")
 
-        self.unit_edit = QLineEdit(unit or ".service")
-        self.unit_edit.setPlaceholderText("e.g. custom.service")
+        if self.available_units:
+            completer = QCompleter(sorted(self.available_units), self)
+            completer.setCaseSensitivity(Qt.CaseInsensitive)
+            completer.setFilterMode(Qt.MatchContains)
+            completer.setMaxVisibleItems(10)
+            self.unit_edit.setCompleter(completer)
+
         form.addRow("systemd Unit:", self.unit_edit)
 
+        self.name_edit = QLineEdit(name)
+        self.name_edit.setPlaceholderText("e.g. Docker Engine")
+        form.addRow("Display Name:", self.name_edit)
+
+        hint_label = QLabel("<small style='color: #888888;'>💡 <i>Start typing in 'systemd Unit' to see live autocomplete suggestions from your system.</i></small>")
+        hint_label.setTextFormat(Qt.RichText)
+        form.addRow("", hint_label)
+
         layout.addLayout(form)
+
+        # Auto-fill display name when unit is selected
+        self.last_auto_name = ""
+        self.unit_edit.textChanged.connect(self.on_unit_text_changed)
 
         btn_box = QHBoxLayout()
         btn_box.addStretch()
@@ -156,6 +175,18 @@ class ServiceEditDialog(QDialog):
 
         layout.addLayout(btn_box)
 
+    def on_unit_text_changed(self, text):
+        clean_name = text.strip()
+        for ext in [".service", ".socket", ".target", ".timer"]:
+            if clean_name.endswith(ext):
+                clean_name = clean_name[:-len(ext)]
+        clean_name = clean_name.replace("-", " ").replace("_", " ").title()
+
+        current_name = self.name_edit.text()
+        if not current_name or current_name == self.last_auto_name:
+            self.name_edit.setText(clean_name)
+            self.last_auto_name = clean_name
+
     def validate_and_accept(self):
         name = self.name_edit.text().strip()
         unit = self.unit_edit.text().strip()
@@ -163,7 +194,7 @@ class ServiceEditDialog(QDialog):
         if not name:
             QMessageBox.warning(self, "Invalid Input", "Please enter a display name.")
             return
-        if not unit or unit == ".service":
+        if not unit:
             QMessageBox.warning(self, "Invalid Input", "Please enter a valid systemd unit name.")
             return
 
@@ -425,7 +456,8 @@ class UnitraySettingsWindow(QDialog):
             self.populate_monitored_table()
 
     def add_custom_service(self):
-        dlg = ServiceEditDialog(self, title="Add Custom systemd Unit")
+        units = list(self.all_services.keys())
+        dlg = ServiceEditDialog(self, title="Add Custom systemd Unit", available_units=units)
         if dlg.exec() == QDialog.Accepted:
             self.monitored_services.append({"name": dlg.name, "unit": dlg.unit})
             self.populate_monitored_table()
@@ -440,8 +472,9 @@ class UnitraySettingsWindow(QDialog):
 
         current_name = self.monitored_table.item(row, 0).text()
         unit = self.monitored_table.item(row, 1).text()
+        units = list(self.all_services.keys())
 
-        dlg = ServiceEditDialog(self, title="Edit Display Name", name=current_name, unit=unit)
+        dlg = ServiceEditDialog(self, title="Edit Display Name", name=current_name, unit=unit, available_units=units)
         if dlg.exec() == QDialog.Accepted:
             self.monitored_services[row]["name"] = dlg.name
             self.populate_monitored_table()
