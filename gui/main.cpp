@@ -3,12 +3,26 @@
 #include <QApplication>
 #include <QStandardPaths>
 #include <QIcon>
+#include <QDir>
+#include <QFile>
 #include <iostream>
 #include <sys/file.h>
 #include <unistd.h>
 #include <fcntl.h>
 
 static int s_lockFd = -1;
+
+static QIcon resolveAppIcon() {
+    QIcon icon = QIcon::fromTheme("unitray");
+    if (!icon.isNull()) return icon;
+
+    QString homePix = QDir::homePath() + "/.local/share/pixmaps/unitray.png";
+    if (QFile::exists(homePix)) return QIcon(homePix);
+
+    if (QFile::exists("/usr/share/pixmaps/unitray.png")) return QIcon("/usr/share/pixmaps/unitray.png");
+
+    return QIcon::fromTheme("preferences-system-services");
+}
 
 static bool acquireSingleInstanceLock() {
     QString runtimeDir = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation);
@@ -40,7 +54,7 @@ int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
     app.setApplicationName("unitray-settings");
     app.setApplicationDisplayName("Unitray Settings");
-    app.setWindowIcon(QIcon::fromTheme("unitray", QIcon::fromTheme("preferences-system-services")));
+    app.setWindowIcon(resolveAppIcon());
 
     SettingsWindow window;
     window.show();

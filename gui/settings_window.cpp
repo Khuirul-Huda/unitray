@@ -201,7 +201,13 @@ SettingsWindow::SettingsWindow(QWidget *parent)
     : QDialog(parent)
 {
     setWindowTitle(tr("Unitray Settings"));
-    setWindowIcon(QIcon::fromTheme("unitray", QIcon::fromTheme("preferences-system-services")));
+    QIcon appIcon = QIcon::fromTheme("unitray");
+    if (appIcon.isNull()) {
+        QString homePix = QDir::homePath() + "/.local/share/pixmaps/unitray.png";
+        if (QFile::exists(homePix)) appIcon = QIcon(homePix);
+        else appIcon = QIcon::fromTheme("preferences-system-services");
+    }
+    setWindowIcon(appIcon);
     resize(780, 560);
     setMinimumSize(600, 420);
 
@@ -484,6 +490,10 @@ void SettingsWindow::setupUi() {
     m_comboPresetIcons = new QComboBox();
     for (int i = 0; POPULAR_ICONS[i].id != nullptr; ++i) {
         QIcon icon = QIcon::fromTheme(POPULAR_ICONS[i].id);
+        if (icon.isNull() && QString(POPULAR_ICONS[i].id) == "unitray") {
+            QString homePix = QDir::homePath() + "/.local/share/pixmaps/unitray.png";
+            if (QFile::exists(homePix)) icon = QIcon(homePix);
+        }
         m_comboPresetIcons->addItem(icon, QString("%1 (%2)").arg(POPULAR_ICONS[i].label, POPULAR_ICONS[i].id), POPULAR_ICONS[i].id);
     }
     formLayout->addRow(tr("Tray Icon Preset:"), m_comboPresetIcons);
@@ -738,6 +748,10 @@ void SettingsWindow::onPresetIconChanged(int index) {
 void SettingsWindow::onCustomIconTextChanged(const QString &text) {
     m_config.trayIcon = text.trimmed();
     QIcon icon = QIcon::fromTheme(m_config.trayIcon);
+    if (icon.isNull() && m_config.trayIcon == "unitray") {
+        QString homePix = QDir::homePath() + "/.local/share/pixmaps/unitray.png";
+        if (QFile::exists(homePix)) icon = QIcon(homePix);
+    }
     if (!icon.isNull()) {
         m_lblIconPreview->setPixmap(icon.pixmap(28, 28));
     } else {
