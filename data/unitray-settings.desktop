@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Unitray Settings
+GenericName=Service Controller Settings
+Comment=Configure monitored systemd services for Unitray
+Exec=unitray-settings
+Icon=preferences-system-services
+Terminal=false
+Categories=Settings;Development;System;Utility;
+StartupNotify=true
