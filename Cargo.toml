@@ -31,11 +31,12 @@ extended-description = """\
 Unitray is an ultra-lightweight system tray controller for managing
 local development services (MariaDB, PostgreSQL, Docker, Cloudflared)
 on Linux desktops."""
-depends = "$auto, systemd"
+depends = "$auto, systemd, python3"
 section = "utils"
 priority = "optional"
 assets = [
     ["target/release/unitray", "usr/bin/unitray", "755"],
+    ["scripts/unitray-settings", "usr/bin/unitray-settings", "755"],
     ["data/unitray.desktop", "usr/share/applications/unitray.desktop", "644"],
     ["data/unitray.service", "usr/lib/systemd/user/unitray.service", "644"],
     ["data/49-unitray.rules", "usr/share/polkit-1/rules.d/49-unitray.rules", "644"],
@@ -46,6 +47,7 @@ assets = [
 [package.metadata.generate-rpm]
 assets = [
     { source = "target/release/unitray", dest = "/usr/bin/unitray", mode = "755" },
+    { source = "scripts/unitray-settings", dest = "/usr/bin/unitray-settings", mode = "755" },
     { source = "data/unitray.desktop", dest = "/usr/share/applications/unitray.desktop", mode = "644" },
     { source = "data/unitray.service", dest = "/usr/lib/systemd/user/unitray.service", mode = "644" },
     { source = "data/49-unitray.rules", dest = "/usr/share/polkit-1/rules.d/49-unitray.rules", mode = "644" },

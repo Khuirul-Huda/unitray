@@ -82,22 +82,24 @@ Unitray docks cleanly into any modern Linux panel (Waybar, KDE Plasma System Tra
                                                           │ (Click)
                                                           ▼
                ┌─────────────────────────────────────────────────────────┐
-               │  [✔] MariaDB                    [● Running]             │
-               │  [✔] Docker                     [● Running]             │
-               │  [ ] PostgreSQL                 [○ Stopped]             │
-               │  [ ] Cloudflare Tunnel          [○ Stopped]             │
+               │    MariaDB                      [🟢 Running]            │
+               │    Docker                       [🟢 Running]            │
+               │    PostgreSQL                   [🔴 Stopped]            │
+               │    Cloudflare Tunnel            [🔴 Stopped]            │
                │  ─────────────────────────────────────────────────────  │
                │  ↻  Restart All Services                                │
                │  ⏹  Stop All Services                                   │
                │  ─────────────────────────────────────────────────────  │
+               │  ⚙  Settings...                                         │
                │  ℹ  About Unitray...                                    │
                │  ⏻  Quit Unitray                                        │
                └─────────────────────────────────────────────────────────┘
 ```
 
-- **Checkmark `[✔]` / `[ ]`**: Clicking any service item toggles its state immediately (`systemctl start` or `systemctl stop`).
-- **Dynamic Badge**: Visual status indicator (`● Running` vs `○ Stopped`) gives at-a-glance confirmation.
+- **Clean Dropdown**: No checkmark clutter. Click any service item to instantly toggle between start and stop.
+- **Vibrant Status Badges**: High-visibility status indicators (`[🟢 Running]` vs `[🔴 Stopped]`) give at-a-glance confirmation.
 - **Batch Controls**: `Restart All Services` and `Stop All Services` let you spin down your entire development stack when packing up your laptop.
+- **Graphical Settings UI**: `Settings...` launches the built-in GUI configuration tool (`unitray-settings`) to visually manage services, polling intervals, and icons.
 - **Integrated Dialog**: `About Unitray...` displays author and version details using native desktop dialogs (`kdialog` -> `zenity` -> `notify-send`).
 
 ---
@@ -114,16 +116,17 @@ Using Unitray is completely intuitive:
 
 2. **Left-Click to View & Toggle Services:**
    - Click the tray icon to see real-time statuses:
-     - `● Running` with a checkmark `[✔]` for active services.
-     - `○ Stopped` without checkmark `[ ]` for inactive services.
-   - Click any service to start or stop it instantly.
+     - `[🟢 Running]` for active services.
+     - `[🔴 Stopped]` for inactive services.
+   - Click any service to start or stop it instantly without password prompts.
 
-3. **Batch Control Actions:**
+3. **Manage via Graphical Settings:**
+   - Click **`Settings...`** in the tray menu or run `unitray-settings` in your terminal to graphically add, remove, and reorder monitored services.
+   - Any changes are saved to `~/.config/unitray/config.toml` and automatically hot-reloaded!
+
+4. **Batch Control Actions:**
    - **`Restart All Services`**: Reloads all configured services in one click (useful when switching git branches or modifying configs).
    - **`Stop All Services`**: Safely shuts down your entire local development stack when leaving your workstation or conserving battery.
-
-4. **Customize Your Services:**
-   - Edit `~/.config/unitray/config.toml` to add or remove services (Docker, PostgreSQL, Redis, MariaDB, Ollama, etc.).
 
 ---
 

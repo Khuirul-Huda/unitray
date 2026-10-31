@@ -23,6 +23,7 @@ cargo build --release
 
 %install
 install -D -m 0755 target/release/%{name} %{buildroot}%{_bindir}/%{name}
+install -D -m 0755 scripts/%{name}-settings %{buildroot}%{_bindir}/%{name}-settings
 install -D -m 0644 data/%{name}.desktop %{buildroot}%{_datadir}/applications/%{name}.desktop
 install -D -m 0644 data/%{name}.service %{buildroot}%{_userunitdir}/%{name}.service
 install -D -m 0644 data/49-%{name}.rules %{buildroot}%{_datadir}/polkit-1/rules.d/49-%{name}.rules
@@ -32,6 +33,7 @@ install -D -m 0644 config/%{name}.toml %{buildroot}%{_sysconfdir}/%{name}/config
 %license LICENSE
 %doc README.md
 %{_bindir}/%{name}
+%{_bindir}/%{name}-settings
 %{_datadir}/applications/%{name}.desktop
 %{_userunitdir}/%{name}.service
 %{_datadir}/polkit-1/rules.d/49-%{name}.rules

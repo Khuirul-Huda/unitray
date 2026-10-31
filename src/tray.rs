@@ -1,7 +1,8 @@
-use ksni::menu::{CheckmarkItem, MenuItem, StandardItem};
+use ksni::menu::{MenuItem, StandardItem};
 use ksni::Tray;
 use crate::config::AppConfig;
 use crate::service;
+use std::time::SystemTime;
 
 #[derive(Debug, Clone)]
 pub struct MonitoredService {
@@ -14,10 +15,15 @@ pub struct MonitoredService {
 pub struct UnitrayItem {
     pub icon_name: String,
     pub services: Vec<MonitoredService>,
+    pub last_config_mtime: Option<SystemTime>,
 }
 
 impl UnitrayItem {
     pub fn from_config(config: &AppConfig) -> Self {
+        let mtime = crate::config::resolve_config_path()
+            .and_then(|p| std::fs::metadata(p).ok())
+            .and_then(|m| m.modified().ok());
+
         let mut tray_item = Self {
             icon_name: config.tray_icon.clone(),
             services: config
@@ -29,9 +35,25 @@ impl UnitrayItem {
                     is_active: false,
                 })
                 .collect(),
+            last_config_mtime: mtime,
         };
         tray_item.refresh_states();
         tray_item
+    }
+
+    pub fn reload_config(&mut self) {
+        let config = crate::config::load_configuration();
+        self.icon_name = config.tray_icon;
+        self.services = config
+            .services
+            .iter()
+            .map(|entry| MonitoredService {
+                name: entry.name.clone(),
+                unit: entry.unit.clone(),
+                is_active: false,
+            })
+            .collect();
+        self.refresh_states();
     }
 
     pub fn refresh_states(&mut self) -> bool {
@@ -64,22 +86,34 @@ impl Tray for UnitrayItem {
     }
 
     fn menu_about_to_show(&mut self) {
-        self.refresh_states();
+        let current_mtime = crate::config::resolve_config_path()
+            .and_then(|p| std::fs::metadata(p).ok())
+            .and_then(|m| m.modified().ok());
+
+        if current_mtime != self.last_config_mtime {
+            self.reload_config();
+            self.last_config_mtime = current_mtime;
+        } else {
+            self.refresh_states();
+        }
     }
 
     fn menu(&self) -> Vec<MenuItem<Self>> {
         let mut items: Vec<MenuItem<Self>> = Vec::new();
 
         for service in &self.services {
-            let status_badge = if service.is_active { "● Running" } else { "○ Stopped" };
-            let label = format!("{}  [{}]", service.name, status_badge);
+            let (status_icon, status_text) = if service.is_active {
+                ("🟢", "Running")
+            } else {
+                ("🔴", "Stopped")
+            };
+            let label = format!("{}  [{} {}]", service.name, status_icon, status_text);
             let unit_name = service.unit.clone();
             let is_running = service.is_active;
 
             items.push(
-                CheckmarkItem {
+                StandardItem {
                     label,
-                    checked: is_running,
                     enabled: true,
                     activate: Box::new(move |this: &mut Self| {
                         if is_running {
@@ -131,6 +165,18 @@ impl Tray for UnitrayItem {
 
         items.push(
             StandardItem {
+                label: "Settings...".into(),
+                icon_name: "configure".into(),
+                activate: Box::new(|_| {
+                    open_settings_ui();
+                }),
+                ..Default::default()
+            }
+            .into(),
+        );
+
+        items.push(
+            StandardItem {
                 label: "About Unitray...".into(),
                 icon_name: "help-about".into(),
                 activate: Box::new(|_| {
@@ -153,6 +199,36 @@ impl Tray for UnitrayItem {
 
         items
     }
+}
+
+fn open_settings_ui() {
+    std::thread::spawn(|| {
+        let custom_paths = [
+            dirs::home_dir().map(|h| h.join(".local/bin/unitray-settings")),
+            Some(std::path::PathBuf::from("/usr/local/bin/unitray-settings")),
+            Some(std::path::PathBuf::from("/usr/bin/unitray-settings")),
+        ];
+
+        for path_opt in custom_paths.into_iter().flatten() {
+            if path_opt.exists() {
+                if let Ok(mut child) = std::process::Command::new(&path_opt).spawn() {
+                    let _ = child.wait();
+                    return;
+                }
+            }
+        }
+
+        if let Ok(mut child) = std::process::Command::new("unitray-settings").spawn() {
+            let _ = child.wait();
+            return;
+        }
+
+        if let Some(config_path) = crate::config::resolve_config_path() {
+            let _ = std::process::Command::new("xdg-open")
+                .arg(config_path)
+                .spawn();
+        }
+    });
 }
 
 fn show_about_dialog() {

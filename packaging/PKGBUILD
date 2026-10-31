@@ -19,6 +19,7 @@ build() {
 package() {
     cd "$pkgname-$pkgver"
     install -Dm755 "target/release/$pkgname" "$pkgdir/usr/bin/$pkgname"
+    install -Dm755 "scripts/$pkgname-settings" "$pkgdir/usr/bin/$pkgname-settings"
     install -Dm644 "data/$pkgname.desktop" "$pkgdir/usr/share/applications/$pkgname.desktop"
     install -Dm644 "data/$pkgname.service" "$pkgdir/usr/lib/systemd/user/$pkgname.service"
     install -Dm644 "data/49-$pkgname.rules" "$pkgdir/usr/share/polkit-1/rules.d/49-$pkgname.rules"
