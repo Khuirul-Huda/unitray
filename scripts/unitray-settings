@@ -5,9 +5,12 @@ Discovers all systemd services with interactive enable/disable checkboxes,
 auto-completion for custom services, and visual system icon picker.
 """
 
+import os
 import sys
 import subprocess
 import tomllib
+import fcntl
+import tempfile
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer, QSize
@@ -747,7 +750,24 @@ class UnitraySettingsWindow(QDialog):
             QMessageBox.critical(self, "Error", f"Failed to save configuration:\n{e}")
 
 
+def acquire_settings_lock():
+    """Ensure only one instance of Unitray Settings is active at a time."""
+    runtime_dir = Path(f"/run/user/{os.getuid()}") if hasattr(os, "getuid") else Path(tempfile.gettempdir())
+    lock_path = (runtime_dir if runtime_dir.exists() else Path(tempfile.gettempdir())) / "unitray-settings.lock"
+    try:
+        lock_file = open(lock_path, "w")
+        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return lock_file
+    except (IOError, OSError):
+        return None
+
+
 def main():
+    lock_guard = acquire_settings_lock()
+    if lock_guard is None:
+        print("Unitray Settings is already open. Exiting.")
+        sys.exit(0)
+
     app = QApplication(sys.argv)
     window = UnitraySettingsWindow()
     window.show()
