@@ -145,26 +145,41 @@ impl eframe::App for UnitraySettingsApp {
             ui.label("Configure monitored systemd services and tray appearance.");
             ui.add_space(6.0);
 
-            // Tab bar styled with distinct buttons
+            // Tab bar styled with distinct pill buttons
             ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing = egui::vec2(6.0, 0.0);
                 let monitored_count = self.config.services.len();
                 let explorer_count = self.all_services.len();
 
-                ui.selectable_value(
-                    &mut self.selected_tab,
-                    SettingsTab::Monitored,
-                    format!("📌 Monitored in Tray ({})", monitored_count),
-                );
-                ui.selectable_value(
-                    &mut self.selected_tab,
-                    SettingsTab::Explorer,
-                    format!("🔍 All System Services ({})", explorer_count),
-                );
-                ui.selectable_value(
-                    &mut self.selected_tab,
-                    SettingsTab::General,
-                    "⚙ General Options",
-                );
+                let tabs = [
+                    (
+                        SettingsTab::Monitored,
+                        format!("📌 Monitored in Tray ({})", monitored_count),
+                    ),
+                    (
+                        SettingsTab::Explorer,
+                        format!("🔍 All System Services ({})", explorer_count),
+                    ),
+                    (
+                        SettingsTab::General,
+                        "⚙ General Options".to_string(),
+                    ),
+                ];
+
+                for (tab, label) in tabs {
+                    let is_selected = self.selected_tab == tab;
+                    let btn = egui::Button::new(label)
+                        .fill(if is_selected {
+                            egui::Color32::from_rgb(61, 174, 233)
+                        } else {
+                            egui::Color32::from_rgb(42, 47, 56)
+                        })
+                        .rounding(6.0);
+
+                    if ui.add(btn).clicked() {
+                        self.selected_tab = tab;
+                    }
+                }
             });
             ui.add_space(4.0);
         });
@@ -273,22 +288,18 @@ impl UnitraySettingsApp {
                         // Unit name
                         ui.label(&entry.unit);
 
-                        // Status badge
-                        if is_active {
-                            ui.colored_label(egui::Color32::from_rgb(46, 204, 113), "🟢 Active");
-                        } else {
-                            ui.colored_label(egui::Color32::from_rgb(231, 76, 60), "🔴 Inactive");
-                        }
+                        // Status badge with native painted circle dot
+                        render_status_badge(ui, is_active);
 
                         // Inline Order Actions
                         ui.horizontal(|ui| {
-                            if idx > 0 && ui.small_button("▲").clicked() {
+                            if idx > 0 && ui.small_button("↑ Up").clicked() {
                                 swap_action = Some((idx, idx - 1));
                             }
-                            if idx + 1 < services_len && ui.small_button("▼").clicked() {
+                            if idx + 1 < services_len && ui.small_button("↓ Down").clicked() {
                                 swap_action = Some((idx, idx + 1));
                             }
-                            if ui.small_button("✖").clicked() {
+                            if ui.small_button("✖ Del").clicked() {
                                 remove_action = Some(idx);
                             }
                         });
@@ -373,11 +384,7 @@ impl UnitraySettingsApp {
 
                         ui.label(&service.unit);
 
-                        if service.is_active {
-                            ui.colored_label(egui::Color32::from_rgb(46, 204, 113), "🟢 Active");
-                        } else {
-                            ui.colored_label(egui::Color32::from_rgb(231, 76, 60), "🔴 Inactive");
-                        }
+                        render_status_badge(ui, service.is_active);
 
                         ui.label(&service.description);
                         ui.end_row();
@@ -643,6 +650,62 @@ fn scan_icons_dir(dir: &Path, set: &mut HashSet<String>, depth: usize) {
     }
 }
 
+fn render_status_badge(ui: &mut egui::Ui, is_active: bool) {
+    ui.horizontal(|ui| {
+        let (dot_color, label_text) = if is_active {
+            (egui::Color32::from_rgb(46, 204, 113), "Active")
+        } else {
+            (egui::Color32::from_rgb(231, 76, 60), "Inactive")
+        };
+        let (rect, _resp) = ui.allocate_exact_size(egui::vec2(10.0, 10.0), egui::Sense::hover());
+        ui.painter().circle_filled(rect.center(), 4.5, dot_color);
+        ui.colored_label(dot_color, label_text);
+    });
+}
+
+fn setup_system_fonts(ctx: &egui::Context) {
+    let mut fonts = egui::FontDefinitions::default();
+
+    // 1. Primary UI font: Noto Sans
+    let noto_sans_paths = [
+        "/usr/share/fonts/google-noto-vf/NotoSans[wght].ttf",
+        "/usr/share/fonts/google-noto/NotoSans-Regular.ttf",
+    ];
+    for p in &noto_sans_paths {
+        if let Ok(data) = std::fs::read(p) {
+            fonts.font_data.insert(
+                "NotoSans".to_owned(),
+                egui::FontData::from_owned(data),
+            );
+            if let Some(family) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
+                family.insert(0, "NotoSans".to_owned());
+            }
+            break;
+        }
+    }
+
+    // 2. Symbols font for arrows and UI glyphs
+    let symbols_paths = [
+        "/usr/share/fonts/google-noto-vf/NotoSansSymbols[wght].ttf",
+        "/usr/share/fonts/google-noto/NotoSansSymbols2-Regular.ttf",
+        "/usr/share/fonts/gdouros-symbola/Symbola.ttf",
+    ];
+    for p in &symbols_paths {
+        if let Ok(data) = std::fs::read(p) {
+            fonts.font_data.insert(
+                "NotoSymbols".to_owned(),
+                egui::FontData::from_owned(data),
+            );
+            if let Some(family) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
+                family.push("NotoSymbols".to_owned());
+            }
+            break;
+        }
+    }
+
+    ctx.set_fonts(fonts);
+}
+
 fn main() -> Result<(), eframe::Error> {
     // Single instance enforcement
     let guard = match lock::acquire_named_lock("unitray-settings.lock") {
@@ -665,6 +728,9 @@ fn main() -> Result<(), eframe::Error> {
         "Unitray Settings",
         options,
         Box::new(|cc| {
+            // Setup crisp system fonts
+            setup_system_fonts(&cc.egui_ctx);
+
             // Apply Breeze-inspired dark visuals
             let mut visuals = egui::Visuals::dark();
             visuals.window_rounding = 8.0.into();
