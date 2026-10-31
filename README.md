@@ -10,10 +10,10 @@
 
 <p align="center">
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
-  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-2024%20(MSRV%201.85+)-orange?logo=rust&logoColor=white" alt="Rust Edition: 2024" /></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Daemon-Rust%202024-orange?logo=rust&logoColor=white" alt="Daemon: Rust 2024" /></a>
+  <a href="https://www.qt.io/"><img src="https://img.shields.io/badge/Settings%20UI-C%2B%2B%20Qt%206-41CD52?logo=qt&logoColor=white" alt="Settings UI: C++ Qt 6" /></a>
   <a href="https://www.freedesktop.org/"><img src="https://img.shields.io/badge/Platform-Linux%20(Wayland%20%26%20X11)-2ea44f?logo=linux&logoColor=white" alt="Platform: Linux" /></a>
-  <a href="#-technical-specifications"><img src="https://img.shields.io/badge/Binary%20Size-~1.7%20MB-blueviolet" alt="Binary Size" /></a>
-  <a href="#-technical-specifications"><img src="https://img.shields.io/badge/Memory-~3.6%20MB%20RAM-brightgreen" alt="RAM Usage" /></a>
+  <a href="#-technical-specifications"><img src="https://img.shields.io/badge/Daemon%20RAM-~3.5%20MB-brightgreen" alt="RAM Usage" /></a>
   <a href="#-desktop-compatibility-matrix"><img src="https://img.shields.io/badge/Desktops-KDE%20%7C%20GNOME%20%7C%20Sway%20%7C%20Hyprland%20%7C%20Waybar-informational" alt="Desktops" /></a>
 </p>
 
@@ -56,7 +56,9 @@
 
 **Unitray** is a modern, ultra-lightweight system tray controller engineered specifically for developers, sysadmins, and Linux power users who want rapid, one-click access to local services—such as MariaDB, PostgreSQL, Docker, Podman, Redis, Nginx, Ollama, or Cloudflare Tunnels—without having to open a terminal or launch bloated GUI service managers.
 
-Built with pure **Rust** and communicating directly via the native FreeDesktop **StatusNotifierItem (SNI)** D-Bus protocol (`ksni`/`zbus`), Unitray requires **no GTK**, **no Qt runtime**, and **no Electron runtime**. It sits silently in your status bar, sipping a microscopic ~3.6 MB of RAM, and instantly informs you of service state transitions.
+Unitray employs a clean, high-performance hybrid architecture:
+1. **Tray Daemon (`unitray`)**: Built with pure **Rust** and communicating directly via the native FreeDesktop **StatusNotifierItem (SNI)** D-Bus protocol (`ksni`/`zbus`). The resident background daemon requires **zero GUI libraries**, sitting silently in your status bar while sipping a microscopic **~3.5 MB of RAM**.
+2. **Settings GUI (`unitray-settings`)**: Built with native **C++20 & Qt 6 Widgets**. Unlike non-native or flat-rendered GUIs, the settings window natively adopts your desktop environment’s look, feel, widgets, and themes (such as **KDE Plasma Breeze** or **GNOME Adwaita**), launching in milliseconds with an ultra-compact ~186 KB footprint.
 
 ---
 
@@ -64,16 +66,17 @@ Built with pure **Rust** and communicating directly via the native FreeDesktop *
 
 | Concern | Heavy GUI Managers (system-config-services, Electron GUIs) | CLI Only (`systemctl`) | **Unitray** |
 | :--- | :--- | :--- | :--- |
-| **Memory Footprint** | 80 MB – 350+ MB RAM | 0 MB (Not resident) | **~3.6 MB RAM** |
+| **Daemon Memory** | 80 MB – 350+ MB RAM | 0 MB (Not resident) | **~3.5 MB RAM** (Pure Rust daemon) |
 | **Startup Time** | Slow (2–5 seconds) | Instantaneous | **Instantaneous (< 20ms)** |
-| **GUI Dependencies** | Heavy (Qt, GTK4, WebKit, Node.js) | None | **Zero GUI toolkits** (Pure D-Bus SNI) |
+| **Settings UI** | Heavy Electron / Webview | None | **Native C++ Qt 6** (~186 KB, native OS theme) |
 | **Visual Glanceability** | Must launch window | None (must type `systemctl status`) | **Permanent, live status in panel** |
 | **Convenience** | Multi-window navigation | Manual typing & sudo passwords | **Single-click toggle & batch actions** |
 | **Root Prompts** | Repetitive password dialogs | Prompts for `sudo` | **Granular, secure Polkit rules** |
 
-- **Zero GUI Bloat**: No heavy UI frameworks. Unitray emits native D-Bus StatusNotifierItem signals that your existing desktop panel renders natively with your active system theme.
-- **Microscopic Resource Footprint**: Compiles down to an aggressively optimized **~1.7 MB** binary and consumes just **~3.6 MB** resident memory (RSS).
-- **Instant State Feedback**: Polling keeps status in sync every few seconds, and opening the menu triggers an immediate synchronous check so your view is never stale.
+- **Zero Resident GUI Bloat**: The background daemon has zero GUI toolkit overhead. It emits standard D-Bus StatusNotifierItem signals rendered directly by your system panel.
+- **Native OS Style Adaptation**: The C++ Qt 6 configuration tool matches your host desktop environment seamlessly—supporting KDE Breeze, dark/light color schemes, native fonts, and system icon themes.
+- **Microscopic Resource Footprint**: The Rust daemon compiles to **~1.9 MB** and uses **~3.5 MB RAM**; the C++ settings utility compiles to **~186 KB**.
+- **Instant State Feedback**: Polling keeps status in sync, and opening the menu triggers an immediate synchronous check so your view is never stale.
 - **Batch Productivity Controls**: Toggle individual services or stop/restart all monitored services simultaneously during project context switches.
 - **Frictionless Security**: Ships with Polkit rules granting your user passwordless privileges exclusively for designated developer services, leaving full root security intact.
 
@@ -159,15 +162,13 @@ Using Unitray is completely intuitive:
 
 ## 📊 Technical Specifications
 
-| Metric | Specification |
-| :--- | :--- |
-| **Language** | Rust 2024 Edition (MSRV 1.85+) |
-| **Binary Size** | **~1.7 MB** (LTO enabled, `opt-level = "z"`, stripped) |
-| **Resident Memory (RSS)** | **~3.5 – 3.8 MB RAM** |
-| **D-Bus Protocol** | FreeDesktop `org.kde.StatusNotifierItem` |
-| **Display Protocol** | Wayland & X11 compatible |
-| **IPC Mechanism** | D-Bus systemd manager (`org.freedesktop.systemd1`) via `systemctl` |
-| **Desktop Dependencies** | None (Uses system panel's native renderer) |
+| Component | Implementation | Technology | Footprint |
+| :--- | :--- | :--- | :--- |
+| **Tray Daemon (`unitray`)** | Resident background daemon | Pure Rust 2024 (`ksni`, `zbus`) | **~1.9 MB** binary, **~3.5 MB RAM** |
+| **Settings GUI (`unitray-settings`)** | Native desktop configuration UI | Native C++20 & Qt 6 Widgets | **~186 KB** binary, native OS styling |
+| **D-Bus Protocol** | FreeDesktop `org.kde.StatusNotifierItem` | Native SNI signals | Zero daemon toolkit dependencies |
+| **Display Protocol** | Wayland & X11 compatible | Freedesktop compliance | Instant render via panel tray |
+| **IPC Mechanism** | Systemd manager (`org.freedesktop.systemd1`) | D-Bus / `systemctl` | Zero daemon overhead |
 
 ---
 
@@ -176,7 +177,7 @@ Using Unitray is completely intuitive:
 Unitray is architected with modular service backends:
 
 | Init System | Status | Mechanism | Capabilities |
-| :--- | :---: | :--- | :--- |
+| :--- | :--- | :--- | :--- |
 | **systemd** | **Fully Supported** | `systemctl is-active`, `start`, `stop`, `restart` / D-Bus | Real-time status query, single toggle, batch restart/stop, Polkit passwordless execution |
 | **OpenRC** | **Roadmap** | `rc-service <name> status/start/stop` | Targeted for Alpine Linux & Gentoo developers |
 | **runit** | **Roadmap** | `sv status/up/down <service>` | Targeted for Void Linux developers |
@@ -189,7 +190,7 @@ Because Unitray implements the standard FreeDesktop StatusNotifierItem (SNI) spe
 
 | Desktop / Panel | Display Server | Support Level | Requirements / Notes |
 | :--- | :--- | :---: | :--- |
-| **KDE Plasma 6 & 5** | Wayland / X11 | **Native** | Works out of the box in the default System Tray widget. |
+| **KDE Plasma 6 & 5** | Wayland / X11 | **Native** | Works out of the box in the default System Tray widget. Settings UI renders in native KDE Breeze style! |
 | **GNOME Shell (40–47+)** | Wayland / X11 | **Supported** | Requires the popular [AppIndicator and KStatusNotifierItem Support](https://extensions.gnome.org/extension/615/appindicator-support/) GNOME extension. |
 | **Waybar** (Sway / Hyprland) | Wayland | **Native** | Enable the built-in `"tray"` module in your `~/.config/waybar/config`. |
 | **Hyprland** (Hyprpanel / ags) | Wayland | **Native** | Works with any SNI-compliant bar widget. |
@@ -203,26 +204,26 @@ Because Unitray implements the standard FreeDesktop StatusNotifierItem (SNI) spe
 
 ### Prerequisites
 
-Ensure you have a working Rust toolchain and `systemd` installed:
+Ensure you have a working Rust toolchain, C++ compiler, CMake, and Qt 6 development libraries:
 
 ```bash
-# Check Rust version (MSRV 1.80+)
+# Check Rust version (MSRV 1.85+)
 rustc --version
 cargo --version
 
 # On Fedora / RHEL
-sudo dnf install git gcc
+sudo dnf install -y git gcc gcc-c++ cmake qt6-qtbase-devel
 
 # On Arch Linux / Manjaro
-sudo pacman -S --needed git base-devel
+sudo pacman -S --needed git base-devel cmake qt6-base
 
 # On Ubuntu / Debian
-sudo apt update && sudo apt install -y git build-essential
+sudo apt update && sudo apt install -y git build-essential cmake qt6-base-dev
 ```
 
 ---
 
-### Option A: Build from Source (Cargo)
+### Option A: Build from Source
 
 1. **Clone the repository:**
 
@@ -231,30 +232,38 @@ sudo apt update && sudo apt install -y git build-essential
    cd unitray
    ```
 
-2. **Compile with release optimizations:**
+2. **Compile the Rust Tray Daemon and Native C++ Qt 6 Settings GUI:**
 
    ```bash
+   # Build tray daemon (Rust)
    cargo build --release
+
+   # Build settings UI (C++ Qt 6)
+   cmake -B build -DCMAKE_BUILD_TYPE=Release
+   cmake --build build -j$(nproc)
    ```
 
-3. **Install the binary to `/usr/local/bin`:**
+3. **Install the binaries to `/usr/local/bin`:**
 
    ```bash
    sudo install -m 0755 target/release/unitray /usr/local/bin/unitray
+   sudo install -m 0755 build/unitray-settings /usr/local/bin/unitray-settings
    ```
 
-4. **Install default configuration, desktop entry, and Polkit rules:**
+4. **Install default configuration, desktop entries, and Polkit rules:**
 
    ```bash
    # Copy default configuration to your user directory
    mkdir -p ~/.config/unitray
    cp config/unitray.toml ~/.config/unitray/config.toml
 
-   # Install desktop launcher
-   mkdir -p ~/.local/share/applications
+   # Install desktop launchers & icons
+   mkdir -p ~/.local/share/applications ~/.local/share/pixmaps
    cp data/unitray.desktop ~/.local/share/applications/
+   cp data/unitray-settings.desktop ~/.local/share/applications/
+   cp data/unitray.png ~/.local/share/pixmaps/
 
-   # Install Polkit rule (requires sudo)
+   # Install Polkit rule for passwordless service control (requires sudo)
    sudo cp data/49-unitray.rules /etc/polkit-1/rules.d/
    ```
 
@@ -294,7 +303,7 @@ cd packaging
 makepkg -si
 ```
 
-This compiles `unitray` with `--locked`, installs the binary to `/usr/bin/unitray`, places the systemd user service in `/usr/lib/systemd/user/unitray.service`, installs the desktop file, and registers the Polkit rules in `/usr/share/polkit-1/rules.d/49-unitray.rules`.
+This compiles the Rust tray daemon and C++ Qt 6 settings GUI, installs `unitray` and `unitray-settings` to `/usr/bin/`, places the systemd user service in `/usr/lib/systemd/user/unitray.service`, installs the desktop entries and icons, and registers the Polkit rules in `/usr/share/polkit-1/rules.d/49-unitray.rules`.
 
 ---
 

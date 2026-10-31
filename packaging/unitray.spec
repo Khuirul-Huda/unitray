@@ -8,22 +8,33 @@ Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  rust
 BuildRequires:  cargo
+BuildRequires:  gcc-c++
+BuildRequires:  cmake
+BuildRequires:  qt6-qtbase-devel
 Requires:       systemd
+Requires:       qt6-qtbase
+Requires:       qt6-qtbase-gui
 
 %description
 Unitray is a fast, lightweight Linux system tray controller for managing
 development services (MariaDB, PostgreSQL, Docker, etc.) on KDE Plasma,
 GNOME, Waybar, and other FreeDesktop environments.
 
+The tray daemon is written in Rust for minimal resource usage, and the
+native configuration UI is written in C++ Qt 6 to seamlessly adapt to
+your desktop environment style (KDE Breeze, GNOME, etc.).
+
 %prep
 %autosetup
 
 %build
 cargo build --release
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j%{?_smp_mflags}
 
 %install
 install -D -m 0755 target/release/%{name} %{buildroot}%{_bindir}/%{name}
-install -D -m 0755 target/release/%{name}-settings %{buildroot}%{_bindir}/%{name}-settings
+install -D -m 0755 build/%{name}-settings %{buildroot}%{_bindir}/%{name}-settings
 install -D -m 0644 data/%{name}.desktop %{buildroot}%{_datadir}/applications/%{name}.desktop
 install -D -m 0644 data/%{name}-settings.desktop %{buildroot}%{_datadir}/applications/%{name}-settings.desktop
 install -D -m 0644 data/%{name}.desktop %{buildroot}%{_sysconfdir}/xdg/autostart/%{name}.desktop

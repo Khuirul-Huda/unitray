@@ -6,20 +6,22 @@ pkgdesc="Lightweight systemd service manager in your Linux system tray"
 arch=('x86_64' 'aarch64')
 url="https://github.com/Khuirul-Huda/unitray"
 license=('MIT')
-depends=('systemd')
-makedepends=('rust' 'cargo')
+depends=('systemd' 'qt6-base')
+makedepends=('rust' 'cargo' 'cmake' 'gcc')
 source=("$pkgname-$pkgver.tar.gz")
 sha256sums=('SKIP')
 
 build() {
     cd "$pkgname-$pkgver"
     cargo build --release --locked
+    cmake -B build -DCMAKE_BUILD_TYPE=Release
+    cmake --build build -j$(nproc)
 }
 
 package() {
     cd "$pkgname-$pkgver"
     install -Dm755 "target/release/$pkgname" "$pkgdir/usr/bin/$pkgname"
-    install -Dm755 "target/release/$pkgname-settings" "$pkgdir/usr/bin/$pkgname-settings"
+    install -Dm755 "build/$pkgname-settings" "$pkgdir/usr/bin/$pkgname-settings"
     install -Dm644 "data/$pkgname.desktop" "$pkgdir/usr/share/applications/$pkgname.desktop"
     install -Dm644 "data/$pkgname-settings.desktop" "$pkgdir/usr/share/applications/$pkgname-settings.desktop"
     install -Dm644 "data/$pkgname.desktop" "$pkgdir/etc/xdg/autostart/$pkgname.desktop"

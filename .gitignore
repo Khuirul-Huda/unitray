@@ -1,4 +1,7 @@
 /target/
+/build/
+*.o
+*.a
 __pycache__/
 *.pyc
 **/*.rs.bk
