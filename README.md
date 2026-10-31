@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
-  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-2021%20(MSRV%201.80+)-orange?logo=rust&logoColor=white" alt="Rust Edition: 2021" /></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-2024%20(MSRV%201.85+)-orange?logo=rust&logoColor=white" alt="Rust Edition: 2024" /></a>
   <a href="https://www.freedesktop.org/"><img src="https://img.shields.io/badge/Platform-Linux%20(Wayland%20%26%20X11)-2ea44f?logo=linux&logoColor=white" alt="Platform: Linux" /></a>
   <a href="#-technical-specifications"><img src="https://img.shields.io/badge/Binary%20Size-~1.7%20MB-blueviolet" alt="Binary Size" /></a>
   <a href="#-technical-specifications"><img src="https://img.shields.io/badge/Memory-~3.6%20MB%20RAM-brightgreen" alt="RAM Usage" /></a>
@@ -161,7 +161,7 @@ Using Unitray is completely intuitive:
 
 | Metric | Specification |
 | :--- | :--- |
-| **Language** | Rust 2021 Edition (MSRV 1.80+) |
+| **Language** | Rust 2024 Edition (MSRV 1.85+) |
 | **Binary Size** | **~1.7 MB** (LTO enabled, `opt-level = "z"`, stripped) |
 | **Resident Memory (RSS)** | **~3.5 – 3.8 MB RAM** |
 | **D-Bus Protocol** | FreeDesktop `org.kde.StatusNotifierItem` |

@@ -1,7 +1,7 @@
 [package]
 name = "unitray"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 authors = ["Khuirul Huda <hello@khuirulhuda.my.id>"]
 description = "Lightweight systemd service manager in your Linux system tray"
 license = "MIT"
