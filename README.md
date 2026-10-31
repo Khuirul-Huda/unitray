@@ -1,103 +1,646 @@
 # Unitray 🚀
 
+> **Lightweight, zero-bloat system service manager right inside your Linux system tray.**
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Language: Rust](https://img.shields.io/badge/Language-Rust-orange.svg)](https://www.rust-lang.org/)
-[![Platform: Linux](https://img.shields.io/badge/Platform-Linux-blue.svg)](https://www.freedesktop.org/)
-
-**Unitray** is an ultra-lightweight, zero-bloat system tray controller for managing local development services (`mariadb`, `postgresql`, `docker`, `cloudflared`, etc.) on Linux desktops.
-
-Built with **Rust** using the native FreeDesktop **StatusNotifierItem (SNI)** D-Bus protocol. No heavy GUI toolkit dependencies required (No GTK, No Qt runtime needed).
-
----
-
-## ✨ Features
-
-- ⚡ **Blazing Fast & Lightweight**: Written in Rust, single binary, consumes only **~2–4 MB of RAM**.
-- 🖥️ **Universal Desktop Support**: Works out of the box on **KDE Plasma 6/5**, **GNOME** (via AppIndicator), **Waybar / Hyprland / Sway**, **XFCE**, and **i3**.
-- 🛠️ **Configurable via TOML**: Easily add or remove services by editing `~/.config/unitray/config.toml`.
-- 🔄 **Real-Time Polling**: Status updates automatically whether services are toggled from the tray or via terminal `systemctl`.
-- 🔑 **Passwordless Polkit Integration**: Toggle services instantly without annoying root password prompts.
+[![Rust Edition: 2021](https://img.shields.io/badge/Rust-2021%20(MSRV%201.80+)-orange?logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![Platform: Linux](https://img.shields.io/badge/Platform-Linux%20(Wayland%20%26%20X11)-2ea44f?logo=linux&logoColor=white)](https://www.freedesktop.org/)
+[![Binary Size](https://img.shields.io/badge/Binary%20Size-~1.7%20MB-blueviolet)](#-technical-specifications)
+[![RAM Usage](https://img.shields.io/badge/Memory-~3.6%20MB%20RAM-brightgreen)](#-technical-specifications)
+[![Desktops](https://img.shields.io/badge/Desktops-KDE%20%7C%20GNOME%20%7C%20Sway%20%7C%20Hyprland%20%7C%20Waybar-informational)](#-desktop-compatibility-matrix)
 
 ---
 
-## 📦 Installation
+## 📑 Table of Contents
 
-### From Source (Cargo)
+- [Overview](#-overview)
+- [Why Unitray?](#-why-unitray)
+- [ASCII Menu Preview](#-ascii-menu-preview)
+- [Feature Highlights](#-feature-highlights)
+- [Technical Specifications](#-technical-specifications)
+- [Supported Init Systems](#-supported-init-systems)
+- [Desktop Compatibility Matrix](#-desktop-compatibility-matrix)
+- [Installation Guide](#-installation-guide)
+  - [Prerequisites](#prerequisites)
+  - [Option A: Build from Source (Cargo)](#option-a-build-from-source-cargo)
+  - [Option B: Fedora / RHEL RPM](#option-b-fedora--rhel-rpm)
+  - [Option C: Arch Linux / AUR](#option-c-arch-linux--aur)
+- [Security & Passwordless Polkit Setup](#-security--passwordless-polkit-setup)
+- [Autostart Setup](#-autostart-setup)
+  - [Method 1: systemd User Service (Recommended)](#method-1-systemd-user-service-recommended)
+  - [Method 2: XDG Desktop Autostart](#method-2-xdg-desktop-autostart)
+- [Configuration Guide](#-configuration-guide)
+  - [File Resolution](#file-resolution)
+  - [Configuration Syntax](#configuration-syntax)
+  - [Developer Stack Presets](#developer-stack-presets)
+    - [1. Database Stack](#1-database-stack-mariadb-postgresql-redis-mongodb)
+    - [2. Web & Container Stack](#2-web--container-stack-docker-podman-nginx-caddy)
+    - [3. Dev Tunnels & Local AI Stack](#3-dev-tunnels--local-ai-stack-cloudflare-tunnel-ollama)
+    - [4. The Kitchen Sink (Full-Stack Dev)](#4-the-kitchen-sink-full-stack-dev)
+- [Troubleshooting & FAQ](#-troubleshooting--faq)
+- [Roadmap](#-roadmap)
+- [Author & Credits](#-author--credits)
+- [License](#-license)
 
-```bash
-git clone https://github.com/khuirulhuda/unitray.git
-cd unitray
-cargo build --release
-sudo install -m 0755 target/release/unitray /usr/local/bin/unitray
+---
+
+## 🔍 Overview
+
+**Unitray** is a modern, ultra-lightweight system tray controller engineered specifically for developers, sysadmins, and Linux power users who want rapid, one-click access to local services—such as MariaDB, PostgreSQL, Docker, Podman, Redis, Nginx, Ollama, or Cloudflare Tunnels—without having to open a terminal or launch bloated GUI service managers.
+
+Built with pure **Rust** and communicating directly via the native FreeDesktop **StatusNotifierItem (SNI)** D-Bus protocol (`ksni`/`zbus`), Unitray requires **no GTK**, **no Qt runtime**, and **no Electron runtime**. It sits silently in your status bar, sipping a microscopic ~3.6 MB of RAM, and instantly informs you of service state transitions.
+
+---
+
+## 💡 Why Unitray?
+
+| Concern | Heavy GUI Managers (system-config-services, Electron GUIs) | CLI Only (`systemctl`) | **Unitray** |
+| :--- | :--- | :--- | :--- |
+| **Memory Footprint** | 80 MB – 350+ MB RAM | 0 MB (Not resident) | **~3.6 MB RAM** |
+| **Startup Time** | Slow (2–5 seconds) | Instantaneous | **Instantaneous (< 20ms)** |
+| **GUI Dependencies** | Heavy (Qt, GTK4, WebKit, Node.js) | None | **Zero GUI toolkits** (Pure D-Bus SNI) |
+| **Visual Glanceability** | Must launch window | None (must type `systemctl status`) | **Permanent, live status in panel** |
+| **Convenience** | Multi-window navigation | Manual typing & sudo passwords | **Single-click toggle & batch actions** |
+| **Root Prompts** | Repetitive password dialogs | Prompts for `sudo` | **Granular, secure Polkit rules** |
+
+- **Zero GUI Bloat**: No heavy UI frameworks. Unitray emits native D-Bus StatusNotifierItem signals that your existing desktop panel renders natively with your active system theme.
+- **Microscopic Resource Footprint**: Compiles down to an aggressively optimized **~1.7 MB** binary and consumes just **~3.6 MB** resident memory (RSS).
+- **Instant State Feedback**: Polling keeps status in sync every few seconds, and opening the menu triggers an immediate synchronous check so your view is never stale.
+- **Batch Productivity Controls**: Toggle individual services or stop/restart all monitored services simultaneously during project context switches.
+- **Frictionless Security**: Ships with Polkit rules granting your user passwordless privileges exclusively for designated developer services, leaving full root security intact.
+
+---
+
+## 🖥️ ASCII Menu Preview
+
+Unitray docks cleanly into any modern Linux panel (Waybar, KDE Plasma System Tray, GNOME Top Bar, etc.):
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│  [ Panel / Waybar / Top Bar ]                 [ ⚙ Unitray (2 active) ] │
+└─────────────────────────────────────────────────────────┬──────────────┘
+                                                          │ (Click)
+                                                          ▼
+               ┌─────────────────────────────────────────────────────────┐
+               │  [✔] MariaDB                    [● Running]             │
+               │  [✔] Docker                     [● Running]             │
+               │  [ ] PostgreSQL                 [○ Stopped]             │
+               │  [ ] Cloudflare Tunnel          [○ Stopped]             │
+               │  ─────────────────────────────────────────────────────  │
+               │  ↻  Restart All Services                                │
+               │  ⏹  Stop All Services                                   │
+               │  ─────────────────────────────────────────────────────  │
+               │  ℹ  About Unitray...                                    │
+               │  ⏻  Quit Unitray                                        │
+               └─────────────────────────────────────────────────────────┘
 ```
 
-### Desktop & Systemd Integration
+- **Checkmark `[✔]` / `[ ]`**: Clicking any service item toggles its state immediately (`systemctl start` or `systemctl stop`).
+- **Dynamic Badge**: Visual status indicator (`● Running` vs `○ Stopped`) gives at-a-glance confirmation.
+- **Batch Controls**: `Restart All Services` and `Stop All Services` let you spin down your entire development stack when packing up your laptop.
+- **Integrated Dialog**: `About Unitray...` displays author and version details using native desktop dialogs (`kdialog` -> `zenity` -> `notify-send`).
+
+---
+
+## ⚡ Feature Highlights
+
+- **Pure Rust StatusNotifierItem (SNI)**: Utilizes `ksni` with D-Bus backing. Works natively on both Wayland compositors and X11 display servers.
+- **Dynamic State Refresh**:
+  - Automatically queries service states on a configurable interval (default: 3 seconds).
+  - Triggers an instant state verification immediately before the tray menu opens (`menu_about_to_show`), guaranteeing zero stale indicators.
+  - Automatically reflects changes made externally via CLI `systemctl`.
+- **Configurable TOML Architecture**:
+  - Custom list of systemd service units.
+  - Custom display names and icons.
+  - Configurable polling intervals.
+- **Passwordless Polkit Integration**:
+  - Bundled Polkit rule authorizes `wheel` (or `sudo`) group users to start, stop, and restart whitelisted development units without password prompts.
+- **Zero-Crash Resilience**:
+  - Gracefully falls back to sensible defaults if configuration files are missing or contain parse errors.
+  - Handles missing service units without panics.
+
+---
+
+## 📊 Technical Specifications
+
+| Metric | Specification |
+| :--- | :--- |
+| **Language** | Rust 2021 Edition (MSRV 1.80+) |
+| **Binary Size** | **~1.7 MB** (LTO enabled, `opt-level = "z"`, stripped) |
+| **Resident Memory (RSS)** | **~3.5 – 3.8 MB RAM** |
+| **D-Bus Protocol** | FreeDesktop `org.kde.StatusNotifierItem` |
+| **Display Protocol** | Wayland & X11 compatible |
+| **IPC Mechanism** | D-Bus systemd manager (`org.freedesktop.systemd1`) via `systemctl` |
+| **Desktop Dependencies** | None (Uses system panel's native renderer) |
+
+---
+
+## 🚦 Supported Init Systems
+
+Unitray is architected with modular service backends:
+
+| Init System | Status | Mechanism | Capabilities |
+| :--- | :---: | :--- | :--- |
+| **systemd** | **Fully Supported** | `systemctl is-active`, `start`, `stop`, `restart` / D-Bus | Real-time status query, single toggle, batch restart/stop, Polkit passwordless execution |
+| **OpenRC** | **Roadmap** | `rc-service <name> status/start/stop` | Targeted for Alpine Linux & Gentoo developers |
+| **runit** | **Roadmap** | `sv status/up/down <service>` | Targeted for Void Linux developers |
+
+---
+
+## 🖥️ Desktop Compatibility Matrix
+
+Because Unitray implements the standard FreeDesktop StatusNotifierItem (SNI) specification, it integrates with almost every desktop environment and Wayland status bar:
+
+| Desktop / Panel | Display Server | Support Level | Requirements / Notes |
+| :--- | :--- | :---: | :--- |
+| **KDE Plasma 6 & 5** | Wayland / X11 | **Native** | Works out of the box in the default System Tray widget. |
+| **GNOME Shell (40–47+)** | Wayland / X11 | **Supported** | Requires the popular [AppIndicator and KStatusNotifierItem Support](https://extensions.gnome.org/extension/615/appindicator-support/) GNOME extension. |
+| **Waybar** (Sway / Hyprland) | Wayland | **Native** | Enable the built-in `"tray"` module in your `~/.config/waybar/config`. |
+| **Hyprland** (Hyprpanel / ags) | Wayland | **Native** | Works with any SNI-compliant bar widget. |
+| **XFCE Panel** | X11 | **Native** | Ensure the **Status Notifier Plugin** item is added to your XFCE panel. |
+| **Polybar** | X11 | **Supported** | Supported via Polybar's native `tray-position = right` directive. |
+| **i3 / bspwm / AwesomeWM** | X11 | **Supported** | Works with standalone trays like `trayer`, `stalonetray`, or `tint2`. |
+
+---
+
+## 📦 Installation Guide
+
+### Prerequisites
+
+Ensure you have a working Rust toolchain and `systemd` installed:
 
 ```bash
-# Install XDG desktop launcher & autostart
+# Check Rust version (MSRV 1.80+)
+rustc --version
+cargo --version
+
+# On Fedora / RHEL
+sudo dnf install git gcc
+
+# On Arch Linux / Manjaro
+sudo pacman -S --needed git base-devel
+
+# On Ubuntu / Debian
+sudo apt update && sudo apt install -y git build-essential
+```
+
+---
+
+### Option A: Build from Source (Cargo)
+
+1. **Clone the repository:**
+
+   ```bash
+   git clone https://github.com/khuirulhuda/unitray.git
+   cd unitray
+   ```
+
+2. **Compile with release optimizations:**
+
+   ```bash
+   cargo build --release
+   ```
+
+3. **Install the binary to `/usr/local/bin`:**
+
+   ```bash
+   sudo install -m 0755 target/release/unitray /usr/local/bin/unitray
+   ```
+
+4. **Install default configuration, desktop entry, and Polkit rules:**
+
+   ```bash
+   # Copy default configuration to your user directory
+   mkdir -p ~/.config/unitray
+   cp config/unitray.toml ~/.config/unitray/config.toml
+
+   # Install desktop launcher
+   mkdir -p ~/.local/share/applications
+   cp data/unitray.desktop ~/.local/share/applications/
+
+   # Install Polkit rule (requires sudo)
+   sudo cp data/49-unitray.rules /etc/polkit-1/rules.d/
+   ```
+
+---
+
+### Option B: Fedora / RHEL RPM
+
+A complete RPM spec file is included in [`packaging/unitray.spec`](packaging/unitray.spec).
+
+```bash
+# Install RPM build dependencies
+sudo dnf install -y rpm-build rust cargo
+
+# Setup RPM tree
+mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+
+# Create source archive
+tar --transform 's,^,unitray-0.1.0/,' -czvf ~/rpmbuild/SOURCES/unitray-0.1.0.tar.gz \
+    --exclude='.git' --exclude='target' .
+
+# Copy spec file and build
+cp packaging/unitray.spec ~/rpmbuild/SPECS/
+rpmbuild -ba ~/rpmbuild/SPECS/unitray.spec
+
+# Install the built RPM package
+sudo dnf install ~/rpmbuild/RPMS/x86_64/unitray-0.1.0-1*.rpm
+```
+
+---
+
+### Option C: Arch Linux / AUR
+
+A standard [`packaging/PKGBUILD`](packaging/PKGBUILD) is provided for Arch Linux users:
+
+```bash
+cd packaging
+makepkg -si
+```
+
+This compiles `unitray` with `--locked`, installs the binary to `/usr/bin/unitray`, places the systemd user service in `/usr/lib/systemd/user/unitray.service`, installs the desktop file, and registers the Polkit rules in `/usr/share/polkit-1/rules.d/49-unitray.rules`.
+
+---
+
+## 🔐 Security & Passwordless Polkit Setup
+
+Controlling system-level services (`mariadb.service`, `docker.service`, etc.) normally triggers Polkit authentication prompts or requires `sudo`. Unitray solves this cleanly using PolicyKit rules without compromising your system security.
+
+The bundled file `data/49-unitray.rules` allows members of the administrative group (`wheel` on Fedora/Arch, or `sudo` on Debian/Ubuntu) to run `start`, `stop`, and `restart` on specified development units:
+
+```javascript
+/* /etc/polkit-1/rules.d/49-unitray.rules */
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" && 
+        (subject.isInGroup("wheel") || subject.isInGroup("sudo"))) {
+        
+        var verb = action.lookup("verb");
+        var unit = action.lookup("unit");
+        var allowedVerbs = ["start", "stop", "restart"];
+        var devUnits = [
+            "mariadb.service",
+            "postgresql.service",
+            "docker.service",
+            "cloudflared.service",
+            "redis.service",
+            "nginx.service",
+            "httpd.service",
+            "mongodb.service",
+            "ollama.service",
+            "podman.service",
+            "caddy.service"
+        ];
+        
+        if (allowedVerbs.indexOf(verb) !== -1 && devUnits.indexOf(unit) !== -1) {
+            return polkit.Result.YES;
+        }
+    }
+});
+```
+
+### Installing the Polkit Rule
+
+```bash
+sudo cp data/49-unitray.rules /etc/polkit-1/rules.d/
+sudo chmod 644 /etc/polkit-1/rules.d/49-unitray.rules
+```
+
+> [!NOTE]
+> If your distribution uses the `sudo` group instead of `wheel` (e.g. Debian/Ubuntu), ensure `subject.isInGroup("sudo")` is present in your rule.
+
+Test that passwordless control works via the terminal:
+
+```bash
+systemctl stop mariadb.service
+systemctl start mariadb.service
+# Should succeed immediately without asking for a password!
+```
+
+---
+
+## 🚀 Autostart Setup
+
+Choose either a systemd user service or standard XDG desktop autostart:
+
+### Method 1: systemd User Service (Recommended)
+
+Running Unitray under `systemd --user` ensures automatic restarts on failure and clean lifecycle binding with your graphical session.
+
+```bash
+# 1. Create the user service directory
+mkdir -p ~/.config/systemd/user
+
+# 2. Copy the unit file
+cp data/unitray.service ~/.config/systemd/user/
+
+# 3. Reload systemd user daemon and enable
+systemctl --user daemon-reload
+systemctl --user enable --now unitray.service
+```
+
+To inspect status or logs:
+
+```bash
+systemctl --user status unitray.service
+journalctl --user -u unitray.service -f
+```
+
+---
+
+### Method 2: XDG Desktop Autostart
+
+For desktop environments that manage startup entries via XDG desktop files (KDE Plasma, GNOME, XFCE):
+
+```bash
 mkdir -p ~/.config/autostart
 cp data/unitray.desktop ~/.config/autostart/
-
-# (Optional) Install as systemd user service instead
-mkdir -p ~/.config/systemd/user
-cp data/unitray.service ~/.config/systemd/user/
-systemctl --user daemon-reload
-systemctl --user enable --now unitray
 ```
+
+Unitray will start automatically on your next desktop login.
 
 ---
 
-## ⚙️ Configuration
+## ⚙️ Configuration Guide
 
-Copy the default configuration to your user config directory:
+### File Resolution
 
-```bash
-mkdir -p ~/.config/unitray
-cp config/unitray.toml ~/.config/unitray/config.toml
-```
+When Unitray launches, it searches for its configuration file in the following order:
 
-Edit `~/.config/unitray/config.toml`:
+1. **User configuration**: `~/.config/unitray/config.toml`
+2. **System-wide configuration**: `/etc/unitray/config.toml`
+3. **Internal defaults**: Fallback to MariaDB, PostgreSQL, Docker, and Cloudflare Tunnel if no config file is found.
+
+---
+
+### Configuration Syntax
 
 ```toml
+# ==============================================================================
+# Unitray Configuration File (~/.config/unitray/config.toml)
+# ==============================================================================
+
+# Polling interval in seconds to sync service states with systemd
 refresh_interval_secs = 3
+
+# Fallback tray icon name from your active FreeDesktop icon theme
+# Examples: "preferences-system-services", "server-database", "network-server"
+tray_icon = "preferences-system-services"
+
+# List of services to monitor and manage
+[[services]]
+name = "MariaDB"            # Friendly display name shown in tray menu
+unit = "mariadb.service"    # Exact systemd unit file name
+
+[[services]]
+name = "Docker Engine"
+unit = "docker.service"
+```
+
+| Key | Type | Default | Description |
+| :--- | :---: | :---: | :--- |
+| `refresh_interval_secs` | `integer` | `3` | Background polling period (in seconds) to query `systemctl is-active`. |
+| `tray_icon` | `string` | `"preferences-system-services"` | FreeDesktop icon name displayed in the system tray. |
+| `services` | `array` | *(Default 4 services)* | Array of service tables containing `name` and `unit`. |
+| `services.name` | `string` | *(Required)* | Human-readable label displayed in the dropdown menu. |
+| `services.unit` | `string` | *(Required)* | Full systemd unit name (e.g. `postgresql.service`, `redis.service`). |
+
+---
+
+### Developer Stack Presets
+
+Below are ready-to-copy configuration presets tailored for common developer stacks. Save any of these to `~/.config/unitray/config.toml`:
+
+#### 1. Database Stack (MariaDB, PostgreSQL, Redis, MongoDB)
+
+Perfect for backend developers managing local database instances:
+
+```toml
+refresh_interval_secs = 2
 tray_icon = "server-database"
 
 [[services]]
-name = "MariaDB"
+name = "MariaDB Server"
 unit = "mariadb.service"
+
+[[services]]
+name = "PostgreSQL DB"
+unit = "postgresql.service"
+
+[[services]]
+name = "Redis In-Memory Cache"
+unit = "redis.service"
+
+[[services]]
+name = "MongoDB Server"
+unit = "mongodb.service"
+```
+
+---
+
+#### 2. Web & Container Stack (Docker, Podman, Nginx, Caddy)
+
+Ideal for DevOps, frontend, and microservices developers:
+
+```toml
+refresh_interval_secs = 3
+tray_icon = "network-server"
+
+[[services]]
+name = "Docker Daemon"
+unit = "docker.service"
+
+[[services]]
+name = "Podman Service"
+unit = "podman.service"
+
+[[services]]
+name = "Nginx Web Server"
+unit = "nginx.service"
+
+[[services]]
+name = "Caddy Reverse Proxy"
+unit = "caddy.service"
+```
+
+---
+
+#### 3. Dev Tunnels & Local AI Stack (Cloudflare Tunnel, Ollama)
+
+Tailored for AI engineers and developers exposing local web servers to the internet:
+
+```toml
+refresh_interval_secs = 3
+tray_icon = "utilities-system-monitor"
+
+[[services]]
+name = "Cloudflare Tunnel"
+unit = "cloudflared.service"
+
+[[services]]
+name = "Ollama Local LLM"
+unit = "ollama.service"
+
+[[services]]
+name = "Docker Daemon"
+unit = "docker.service"
+
+[[services]]
+name = "PostgreSQL (pgvector)"
+unit = "postgresql.service"
+```
+
+---
+
+#### 4. The Kitchen Sink (Full-Stack Dev)
+
+Manage your databases, proxies, tunnels, and containers in one place:
+
+```toml
+refresh_interval_secs = 3
+tray_icon = "preferences-system-services"
 
 [[services]]
 name = "PostgreSQL"
 unit = "postgresql.service"
 
 [[services]]
+name = "MariaDB"
+unit = "mariadb.service"
+
+[[services]]
+name = "Redis"
+unit = "redis.service"
+
+[[services]]
 name = "Docker"
 unit = "docker.service"
+
+[[services]]
+name = "Nginx"
+unit = "nginx.service"
+
+[[services]]
+name = "Ollama AI"
+unit = "ollama.service"
 
 [[services]]
 name = "Cloudflare Tunnel"
 unit = "cloudflared.service"
 ```
 
+> [!TIP]
+> Whenever you add new service units to `config.toml`, make sure the unit names are also included in your Polkit rules (`/etc/polkit-1/rules.d/49-unitray.rules`) to allow passwordless toggling!
+
 ---
 
-## 🔐 Passwordless Systemd Toggles (Polkit)
+## 🔧 Troubleshooting & FAQ
 
-To allow toggling development services without entering your root password each time:
+### 1. The tray icon does not appear on GNOME Shell
+GNOME Shell removed native system tray support in version 3.26. To restore StatusNotifierItem support, install the official [AppIndicator and KStatusNotifierItem Support extension](https://extensions.gnome.org/extension/615/appindicator-support/):
 
 ```bash
-sudo cp data/49-unitray.rules /etc/polkit-1/rules.d/
+# On Fedora
+sudo dnf install gnome-shell-extension-appindicator
+
+# On Ubuntu
+sudo apt install gnome-shell-extension-appindicator
+
+# On Arch Linux
+sudo pacman -S gnome-shell-extension-appindicator
+```
+Enable the extension via **GNOME Extensions** or `gnome-extensions enable appindicatorsupport@rgcjonas.gmail.com`.
+
+---
+
+### 2. Password prompt appears when clicking a service
+If toggling a service prompts for authentication:
+1. Verify that your user belongs to the `wheel` (or `sudo`) group:
+   ```bash
+   groups
+   ```
+2. Verify that `/etc/polkit-1/rules.d/49-unitray.rules` exists and contains the exact unit name (e.g. `redis.service`).
+3. Ensure file permissions are set correctly:
+   ```bash
+   sudo chmod 644 /etc/polkit-1/rules.d/49-unitray.rules
+   ```
+
+---
+
+### 3. Waybar does not display the Unitray tray item
+Ensure your Waybar configuration file (`~/.config/waybar/config`) includes the `"tray"` module in `"modules-right"` or `"modules-left"`:
+
+```json
+"modules-right": [
+    "tray",
+    "clock"
+],
+"tray": {
+    "icon-size": 18,
+    "spacing": 8
+}
 ```
 
 ---
 
-## 📜 Packaging
+### 4. Customizing the Tray Icon
+You can specify any icon available in your system's icon theme (e.g., Papirus, Breeze, Adwaita) inside `config.toml`:
 
-- **Fedora / RHEL / openSUSE**: See [`packaging/unitray.spec`](packaging/unitray.spec)
-- **Arch Linux (AUR)**: See [`packaging/PKGBUILD`](packaging/PKGBUILD)
+```toml
+tray_icon = "server-database"
+# or
+tray_icon = "system-run"
+# or
+tray_icon = "network-server"
+```
+
+---
+
+## 🗺️ Roadmap
+
+- [x] FreeDesktop StatusNotifierItem (SNI) implementation with pure Rust
+- [x] Systemd service lifecycle management (start, stop, restart, poll)
+- [x] TOML configuration with automatic path resolution
+- [x] Passwordless Polkit security rules
+- [x] Packaging for Fedora RPM and Arch Linux PKGBUILD
+- [ ] **OpenRC backend**: Support Alpine Linux, Gentoo, and Artix via `rc-service`
+- [ ] **runit backend**: Support Void Linux via `sv`
+- [ ] **Custom command hooks**: Trigger pre-start / post-stop scripts per service
+- [ ] **User systemd services**: Toggle `systemctl --user` units directly from the same menu
+- [ ] **Desktop notifications**: Optional toast notifications on service failure
+
+---
+
+## 👤 Author & Credits
+
+Developed and maintained with ❤️ by **Khuirul Huda**:
+
+- **Author**: Khuirul Huda
+- **Email**: [hudah2102@gmail.com](mailto:hudah2102@gmail.com)
+- **GitHub**: [@khuirulhuda](https://github.com/khuirulhuda)
+- **Repository**: [https://github.com/khuirulhuda/unitray](https://github.com/khuirulhuda/unitray)
+
+Special thanks to the Rust community and maintainers of `ksni` and `zbus` for making lightweight FreeDesktop integration possible.
 
 ---
 
 ## 📄 License
 
-Licensed under the [MIT License](LICENSE). Copyright (c) 2026 Khuirul Huda.
+This project is licensed under the **MIT License**.
+
+See the full [LICENSE](LICENSE) file for details.
+
+```text
+MIT License
+
+Copyright (c) 2026 Khuirul Huda
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+```

@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 const DEFAULT_REFRESH_INTERVAL_SECS: u64 = 3;
-const DEFAULT_TRAY_ICON: &str = "server-database";
+const DEFAULT_TRAY_ICON: &str = "preferences-system-services";
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ServiceEntry {

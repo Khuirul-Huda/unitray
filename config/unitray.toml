@@ -7,7 +7,7 @@
 refresh_interval_secs = 3
 
 # Fallback tray icon from FreeDesktop icon theme
-tray_icon = "server-database"
+tray_icon = "preferences-system-services"
 
 # Developer services to manage
 [[services]]
