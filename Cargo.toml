@@ -22,3 +22,34 @@ lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
+
+[package.metadata.deb]
+maintainer = "Khuirul Huda <hello@khuirulhuda.my.id>"
+copyright = "2026 Khuirul Huda <hello@khuirulhuda.my.id>"
+license-file = ["LICENSE", "4"]
+extended-description = """\
+Unitray is an ultra-lightweight system tray controller for managing
+local development services (MariaDB, PostgreSQL, Docker, Cloudflared)
+on Linux desktops."""
+depends = "$auto, systemd"
+section = "utils"
+priority = "optional"
+assets = [
+    ["target/release/unitray", "usr/bin/unitray", "755"],
+    ["data/unitray.desktop", "usr/share/applications/unitray.desktop", "644"],
+    ["data/unitray.service", "usr/lib/systemd/user/unitray.service", "644"],
+    ["data/49-unitray.rules", "usr/share/polkit-1/rules.d/49-unitray.rules", "644"],
+    ["config/unitray.toml", "etc/unitray/config.toml", "644"],
+    ["README.md", "usr/share/doc/unitray/README.md", "644"],
+]
+
+[package.metadata.generate-rpm]
+assets = [
+    { source = "target/release/unitray", dest = "/usr/bin/unitray", mode = "755" },
+    { source = "data/unitray.desktop", dest = "/usr/share/applications/unitray.desktop", mode = "644" },
+    { source = "data/unitray.service", dest = "/usr/lib/systemd/user/unitray.service", mode = "644" },
+    { source = "data/49-unitray.rules", dest = "/usr/share/polkit-1/rules.d/49-unitray.rules", mode = "644" },
+    { source = "config/unitray.toml", dest = "/etc/unitray/config.toml", mode = "644", config = true },
+    { source = "README.md", dest = "/usr/share/doc/unitray/README.md", mode = "644", doc = true },
+    { source = "LICENSE", dest = "/usr/share/licenses/unitray/LICENSE", mode = "644", doc = true },
+]

@@ -1,0 +1,84 @@
+name: Release & Packaging
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-package:
+    name: Build & Package (RPM, DEB, Tarball)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cargo-deb and cargo-generate-rpm
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deb,cargo-generate-rpm
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Package .deb (Debian / Ubuntu / Mint / Pop!_OS)
+        run: |
+          cargo deb --no-build
+          mkdir -p dist
+          cp target/debian/*.deb dist/
+
+      - name: Package .rpm (Fedora / RHEL / openSUSE)
+        run: |
+          cargo generate-rpm
+          cp target/generate-rpm/*.rpm dist/
+
+      - name: Package standalone .tar.gz bundle
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          [ -z "$VERSION" ] && VERSION="latest"
+          BUNDLE_NAME="unitray-${VERSION}-x86_64-linux"
+          
+          mkdir -p "${BUNDLE_NAME}"
+          cp target/release/unitray "${BUNDLE_NAME}/"
+          cp README.md LICENSE "${BUNDLE_NAME}/"
+          cp -r config/ "${BUNDLE_NAME}/"
+          cp -r data/ "${BUNDLE_NAME}/"
+          
+          tar -czvf "dist/${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
+
+      - name: Generate SHA256 checksums
+        working-directory: dist
+        run: |
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.deb
+            dist/*.rpm
+            dist/*.tar.gz
+            dist/SHA256SUMS.txt
+          generate_release_notes: true
+          draft: false
+          prerelease: false
