@@ -1,10 +1,10 @@
-# Maintainer: Khuirul Huda <hudah2102@gmail.com>
+# Maintainer: Khuirul Huda <hello@khuirulhuda.my.id>
 pkgname=unitray
 pkgver=0.1.0
 pkgrel=1
 pkgdesc="Lightweight systemd service manager in your Linux system tray"
 arch=('x86_64' 'aarch64')
-url="https://github.com/khuirulhuda/unitray"
+url="https://github.com/Khuirul-Huda/unitray"
 license=('MIT')
 depends=('systemd')
 makedepends=('rust' 'cargo')

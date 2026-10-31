@@ -160,19 +160,13 @@ fn show_about_dialog() {
         let title = "About Unitray";
         let content = "\
 Unitray v0.1.0
-Lightweight Systemd Service Controller for Linux System Tray
+Lightweight Linux Systemd Service Controller
 
-Author & Maintainer:
-  Khuirul Huda (@khuirulhuda)
-  Email: hudah2102@gmail.com
-  GitHub: https://github.com/khuirulhuda/unitray
+Author: Khuirul Huda (@Khuirul-Huda)
+Contact: hello@khuirulhuda.my.id
+GitHub: https://github.com/Khuirul-Huda/unitray
 
-License:
-  MIT License - Copyright (c) 2026 Khuirul Huda
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files, to deal in the Software
-  without restriction, including without limitation the rights to use, copy,
-  modify, merge, publish, distribute, sublicense, and/or sell copies.";
+License: MIT License";
 
         // Try native KDE dialog first
         let kdialog_result = std::process::Command::new("kdialog")

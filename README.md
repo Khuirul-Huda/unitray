@@ -16,6 +16,7 @@
 - [Overview](#-overview)
 - [Why Unitray?](#-why-unitray)
 - [ASCII Menu Preview](#-ascii-menu-preview)
+- [Quick Start & Usage](#-quick-start--usage)
 - [Feature Highlights](#-feature-highlights)
 - [Technical Specifications](#-technical-specifications)
 - [Supported Init Systems](#-supported-init-systems)
@@ -39,7 +40,6 @@
     - [4. The Kitchen Sink (Full-Stack Dev)](#4-the-kitchen-sink-full-stack-dev)
 - [Troubleshooting & FAQ](#-troubleshooting--faq)
 - [Roadmap](#-roadmap)
-- [Author & Credits](#-author--credits)
 - [License](#-license)
 
 ---
@@ -99,6 +99,31 @@ Unitray docks cleanly into any modern Linux panel (Waybar, KDE Plasma System Tra
 - **Dynamic Badge**: Visual status indicator (`● Running` vs `○ Stopped`) gives at-a-glance confirmation.
 - **Batch Controls**: `Restart All Services` and `Stop All Services` let you spin down your entire development stack when packing up your laptop.
 - **Integrated Dialog**: `About Unitray...` displays author and version details using native desktop dialogs (`kdialog` -> `zenity` -> `notify-send`).
+
+---
+
+## 🎮 Quick Start & Usage
+
+Using Unitray is completely intuitive:
+
+1. **Start the tray application:**
+   ```bash
+   unitray
+   ```
+   A system service icon (`preferences-system-services`) immediately appears in your panel's system tray.
+
+2. **Left-Click to View & Toggle Services:**
+   - Click the tray icon to see real-time statuses:
+     - `● Running` with a checkmark `[✔]` for active services.
+     - `○ Stopped` without checkmark `[ ]` for inactive services.
+   - Click any service to start or stop it instantly.
+
+3. **Batch Control Actions:**
+   - **`Restart All Services`**: Reloads all configured services in one click (useful when switching git branches or modifying configs).
+   - **`Stop All Services`**: Safely shuts down your entire local development stack when leaving your workstation or conserving battery.
+
+4. **Customize Your Services:**
+   - Edit `~/.config/unitray/config.toml` to add or remove services (Docker, PostgreSQL, Redis, MariaDB, Ollama, etc.).
 
 ---
 
@@ -191,7 +216,7 @@ sudo apt update && sudo apt install -y git build-essential
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/khuirulhuda/unitray.git
+   git clone https://github.com/Khuirul-Huda/unitray.git
    cd unitray
    ```
 
@@ -610,37 +635,6 @@ tray_icon = "network-server"
 
 ---
 
-## 👤 Author & Credits
-
-Developed and maintained with ❤️ by **Khuirul Huda**:
-
-- **Author**: Khuirul Huda
-- **Email**: [hudah2102@gmail.com](mailto:hudah2102@gmail.com)
-- **GitHub**: [@khuirulhuda](https://github.com/khuirulhuda)
-- **Repository**: [https://github.com/khuirulhuda/unitray](https://github.com/khuirulhuda/unitray)
-
-Special thanks to the Rust community and maintainers of `ksni` and `zbus` for making lightweight FreeDesktop integration possible.
-
----
-
 ## 📄 License
 
-This project is licensed under the **MIT License**.
-
-See the full [LICENSE](LICENSE) file for details.
-
-```text
-MIT License
-
-Copyright (c) 2026 Khuirul Huda
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-```
+Distributed under the **MIT License**. See [LICENSE](LICENSE) for more information.
