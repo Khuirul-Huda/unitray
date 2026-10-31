@@ -18,6 +18,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install System Dependencies (Qt 6, CMake & Build Tools)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential qt6-base-dev
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
@@ -37,8 +42,14 @@ jobs:
         with:
           tool: cargo-deb,cargo-generate-rpm
 
-      - name: Build release binary
+      - name: Build Rust Tray Daemon
         run: cargo build --release --locked
+
+      - name: Build Native C++ Qt 6 Settings GUI
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j$(nproc)
+          cp build/unitray-settings target/release/unitray-settings
 
       - name: Package .deb (Debian / Ubuntu / Mint / Pop!_OS)
         run: |
@@ -54,11 +65,12 @@ jobs:
       - name: Package standalone .tar.gz bundle
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          [ -z "$VERSION" ] && VERSION="latest"
+          [ -z "$VERSION" ] && VERSION="0.0.1"
           BUNDLE_NAME="unitray-${VERSION}-x86_64-linux"
           
           mkdir -p "${BUNDLE_NAME}"
           cp target/release/unitray "${BUNDLE_NAME}/"
+          cp target/release/unitray-settings "${BUNDLE_NAME}/"
           cp README.md LICENSE "${BUNDLE_NAME}/"
           cp -r config/ "${BUNDLE_NAME}/"
           cp -r data/ "${BUNDLE_NAME}/"
@@ -81,4 +93,4 @@ jobs:
             dist/SHA256SUMS.txt
           generate_release_notes: true
           draft: false
-          prerelease: false
+          prerelease: true

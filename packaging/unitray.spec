@@ -1,5 +1,5 @@
 Name:           unitray
-Version:        0.1.0
+Version:        0.0.1
 Release:        1%{?dist}
 Summary:        Lightweight systemd service manager in your Linux system tray
 License:        MIT
@@ -61,5 +61,5 @@ done
 %config(noreplace) %{_sysconfdir}/%{name}/config.toml
 
 %changelog
-* Sat Oct 31 2026 Khuirul Huda <hello@khuirulhuda.my.id> - 0.1.0-1
-- Initial release for Fedora Linux
+* Sat Oct 31 2026 Khuirul Huda <hello@khuirulhuda.my.id> - 0.0.1-1
+- Initial alpha release for Fedora Linux
