@@ -1,13 +1,21 @@
-# Unitray 🚀
+<p align="center">
+  <img src="data/unitray.png" alt="Unitray Logo" width="128" height="128" />
+</p>
 
-> **Lightweight, zero-bloat system service manager right inside your Linux system tray.**
+<h1 align="center">Unitray</h1>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Rust Edition: 2021](https://img.shields.io/badge/Rust-2021%20(MSRV%201.80+)-orange?logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![Platform: Linux](https://img.shields.io/badge/Platform-Linux%20(Wayland%20%26%20X11)-2ea44f?logo=linux&logoColor=white)](https://www.freedesktop.org/)
-[![Binary Size](https://img.shields.io/badge/Binary%20Size-~1.7%20MB-blueviolet)](#-technical-specifications)
-[![RAM Usage](https://img.shields.io/badge/Memory-~3.6%20MB%20RAM-brightgreen)](#-technical-specifications)
-[![Desktops](https://img.shields.io/badge/Desktops-KDE%20%7C%20GNOME%20%7C%20Sway%20%7C%20Hyprland%20%7C%20Waybar-informational)](#-desktop-compatibility-matrix)
+<p align="center">
+  <strong>Lightweight, zero-bloat system service manager right inside your Linux system tray.</strong>
+</p>
+
+<p align="center">
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-2021%20(MSRV%201.80+)-orange?logo=rust&logoColor=white" alt="Rust Edition: 2021" /></a>
+  <a href="https://www.freedesktop.org/"><img src="https://img.shields.io/badge/Platform-Linux%20(Wayland%20%26%20X11)-2ea44f?logo=linux&logoColor=white" alt="Platform: Linux" /></a>
+  <a href="#-technical-specifications"><img src="https://img.shields.io/badge/Binary%20Size-~1.7%20MB-blueviolet" alt="Binary Size" /></a>
+  <a href="#-technical-specifications"><img src="https://img.shields.io/badge/Memory-~3.6%20MB%20RAM-brightgreen" alt="RAM Usage" /></a>
+  <a href="#-desktop-compatibility-matrix"><img src="https://img.shields.io/badge/Desktops-KDE%20%7C%20GNOME%20%7C%20Sway%20%7C%20Hyprland%20%7C%20Waybar-informational" alt="Desktops" /></a>
+</p>
 
 ---
 
