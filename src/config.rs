@@ -1,0 +1,92 @@
+use serde::Deserialize;
+use std::fs;
+use std::path::{Path, PathBuf};
+
+const DEFAULT_REFRESH_INTERVAL_SECS: u64 = 3;
+const DEFAULT_TRAY_ICON: &str = "server-database";
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ServiceEntry {
+    pub name: String,
+    pub unit: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AppConfig {
+    #[serde(default = "default_refresh_interval")]
+    pub refresh_interval_secs: u64,
+    #[serde(default = "default_tray_icon")]
+    pub tray_icon: String,
+    #[serde(default)]
+    pub services: Vec<ServiceEntry>,
+}
+
+fn default_refresh_interval() -> u64 {
+    DEFAULT_REFRESH_INTERVAL_SECS
+}
+
+fn default_tray_icon() -> String {
+    DEFAULT_TRAY_ICON.to_string()
+}
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            refresh_interval_secs: DEFAULT_REFRESH_INTERVAL_SECS,
+            tray_icon: DEFAULT_TRAY_ICON.to_string(),
+            services: vec![
+                ServiceEntry {
+                    name: "MariaDB".to_string(),
+                    unit: "mariadb.service".to_string(),
+                },
+                ServiceEntry {
+                    name: "PostgreSQL".to_string(),
+                    unit: "postgresql.service".to_string(),
+                },
+                ServiceEntry {
+                    name: "Docker".to_string(),
+                    unit: "docker.service".to_string(),
+                },
+                ServiceEntry {
+                    name: "Cloudflare Tunnel".to_string(),
+                    unit: "cloudflared.service".to_string(),
+                },
+            ],
+        }
+    }
+}
+
+pub fn resolve_config_path() -> Option<PathBuf> {
+    if let Some(config_dir) = dirs::config_dir() {
+        let user_config = config_dir.join("unitray").join("config.toml");
+        if user_config.exists() {
+            return Some(user_config);
+        }
+    }
+
+    let system_config = Path::new("/etc/unitray/config.toml");
+    if system_config.exists() {
+        return Some(system_config.to_path_buf());
+    }
+
+    None
+}
+
+pub fn load_configuration() -> AppConfig {
+    let Some(path) = resolve_config_path() else {
+        return AppConfig::default();
+    };
+
+    let Ok(content) = fs::read_to_string(&path) else {
+        eprintln!("Warning: Failed to read config file at {:?}, using defaults", path);
+        return AppConfig::default();
+    };
+
+    match toml::from_str::<AppConfig>(&content) {
+        Ok(config) => config,
+        Err(err) => {
+            eprintln!("Warning: Failed to parse TOML configuration ({}), using defaults", err);
+            AppConfig::default()
+        }
+    }
+}

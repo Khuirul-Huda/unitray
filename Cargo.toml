@@ -1,0 +1,24 @@
+[package]
+name = "unitray"
+version = "0.1.0"
+edition = "2021"
+authors = ["Khuirul Huda <hudah2102@gmail.com>"]
+description = "Lightweight systemd service manager in your Linux system tray"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/khuirulhuda/unitray"
+keywords = ["systemd", "tray", "statusnotifieritem", "developer", "linux"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
+ksni = { version = "0.3", features = ["blocking"] }
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
+dirs = "5.0"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

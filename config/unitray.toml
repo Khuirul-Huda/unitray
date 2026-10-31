@@ -1,0 +1,27 @@
+# Unitray Configuration
+# Default search paths:
+#   1. ~/.config/unitray/config.toml
+#   2. /etc/unitray/config.toml
+
+# Polling interval in seconds to update service states
+refresh_interval_secs = 3
+
+# Fallback tray icon from FreeDesktop icon theme
+tray_icon = "server-database"
+
+# Developer services to manage
+[[services]]
+name = "MariaDB"
+unit = "mariadb.service"
+
+[[services]]
+name = "PostgreSQL"
+unit = "postgresql.service"
+
+[[services]]
+name = "Docker"
+unit = "docker.service"
+
+[[services]]
+name = "Cloudflare Tunnel"
+unit = "cloudflared.service"
