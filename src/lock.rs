@@ -9,20 +9,23 @@ pub struct SingleInstanceGuard {
 }
 
 /// Resolves the user-specific path for the lock file.
-fn resolve_lock_path() -> PathBuf {
+fn resolve_lock_path(filename: &str) -> PathBuf {
     if let Some(runtime_dir) = dirs::runtime_dir() {
-        runtime_dir.join("unitray.lock")
+        runtime_dir.join(filename)
     } else {
         let uid = unsafe { libc::getuid() };
-        std::env::temp_dir().join(format!("unitray-{}.lock", uid))
+        let prefix = filename.trim_end_matches(".lock");
+        std::env::temp_dir().join(format!("{}-{}.lock", prefix, uid))
     }
 }
 
-/// Attempts to acquire an exclusive lock to ensure only a single instance of Unitray runs.
-/// Returns Ok(SingleInstanceGuard) if this is the only instance.
-/// Returns Err(Some(pid)) or Err(None) if another instance is already running.
 pub fn acquire_single_instance_lock() -> Result<SingleInstanceGuard, Option<u32>> {
-    let lock_path = resolve_lock_path();
+    acquire_named_lock("unitray.lock")
+}
+
+/// Attempts to acquire an exclusive lock with the given filename.
+pub fn acquire_named_lock(filename: &str) -> Result<SingleInstanceGuard, Option<u32>> {
+    let lock_path = resolve_lock_path(filename);
 
     let mut file = OpenOptions::new()
         .read(true)

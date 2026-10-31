@@ -23,7 +23,7 @@ cargo build --release
 
 %install
 install -D -m 0755 target/release/%{name} %{buildroot}%{_bindir}/%{name}
-install -D -m 0755 scripts/%{name}-settings %{buildroot}%{_bindir}/%{name}-settings
+install -D -m 0755 target/release/%{name}-settings %{buildroot}%{_bindir}/%{name}-settings
 install -D -m 0644 data/%{name}.desktop %{buildroot}%{_datadir}/applications/%{name}.desktop
 install -D -m 0644 data/%{name}-settings.desktop %{buildroot}%{_datadir}/applications/%{name}-settings.desktop
 install -D -m 0644 data/%{name}.desktop %{buildroot}%{_sysconfdir}/xdg/autostart/%{name}.desktop

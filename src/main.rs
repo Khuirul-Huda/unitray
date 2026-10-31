@@ -1,12 +1,9 @@
-mod config;
-mod lock;
-mod service;
-mod tray;
-
+use unitray_core::config;
+use unitray_core::lock;
+use unitray_core::tray::UnitrayItem;
 use ksni::blocking::TrayMethods;
 use std::thread;
 use std::time::Duration;
-use tray::UnitrayItem;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();

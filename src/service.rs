@@ -1,7 +1,72 @@
+use std::collections::HashMap;
 use std::process::Command;
 
 const SYSTEMCTL_BINARY: &str = "systemctl";
 const ACTIVE_STATE_STRING: &str = "active";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SystemdServiceInfo {
+    pub unit: String,
+    pub is_active: bool,
+    pub description: String,
+}
+
+pub fn query_all_systemd_services() -> Vec<SystemdServiceInfo> {
+    let mut services: HashMap<String, (bool, String)> = HashMap::new();
+
+    // 1. Query all service unit files
+    if let Ok(output) = Command::new(SYSTEMCTL_BINARY)
+        .args(["list-unit-files", "--type=service", "--no-legend", "--no-pager"])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            let mut parts = line.split_whitespace();
+            if let Some(unit) = parts.next() {
+                if unit.ends_with(".service") {
+                    services.insert(unit.to_string(), (false, String::new()));
+                }
+            }
+        }
+    }
+
+    // 2. Query runtime states and descriptions
+    if let Ok(output) = Command::new(SYSTEMCTL_BINARY)
+        .args(["list-units", "--type=service", "--all", "--no-legend", "--no-pager"])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            let mut parts = line.split_whitespace();
+            if let (Some(unit), Some(_load), Some(active_state), Some(_sub)) =
+                (parts.next(), parts.next(), parts.next(), parts.next())
+            {
+                let description = parts.collect::<Vec<_>>().join(" ");
+                let is_active = active_state == ACTIVE_STATE_STRING;
+                if let Some(entry) = services.get_mut(unit) {
+                    entry.0 = is_active;
+                    if !description.is_empty() {
+                        entry.1 = description;
+                    }
+                } else if unit.ends_with(".service") {
+                    services.insert(unit.to_string(), (is_active, description));
+                }
+            }
+        }
+    }
+
+    let mut result: Vec<SystemdServiceInfo> = services
+        .into_iter()
+        .map(|(unit, (is_active, description))| SystemdServiceInfo {
+            unit,
+            is_active,
+            description,
+        })
+        .collect();
+
+    result.sort_by(|a, b| a.unit.cmp(&b.unit));
+    result
+}
 
 pub fn is_service_active(unit_name: &str) -> bool {
     let output = Command::new(SYSTEMCTL_BINARY)

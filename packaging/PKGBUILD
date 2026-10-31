@@ -19,7 +19,7 @@ build() {
 package() {
     cd "$pkgname-$pkgver"
     install -Dm755 "target/release/$pkgname" "$pkgdir/usr/bin/$pkgname"
-    install -Dm755 "scripts/$pkgname-settings" "$pkgdir/usr/bin/$pkgname-settings"
+    install -Dm755 "target/release/$pkgname-settings" "$pkgdir/usr/bin/$pkgname-settings"
     install -Dm644 "data/$pkgname.desktop" "$pkgdir/usr/share/applications/$pkgname.desktop"
     install -Dm644 "data/$pkgname-settings.desktop" "$pkgdir/usr/share/applications/$pkgname-settings.desktop"
     install -Dm644 "data/$pkgname.desktop" "$pkgdir/etc/xdg/autostart/$pkgname.desktop"
