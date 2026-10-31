@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
-Unitray Settings - Native Qt 6 Graphical Configuration Utility for Unitray
-Uses native Qt 6 Breeze style, fully integrated with KDE Plasma & Wayland.
+Unitray Settings - Native Qt 6 Configuration Utility for Unitray
+Discovers all systemd services with interactive enable/disable checkboxes.
 """
 
 import sys
+import subprocess
 import tomllib
 from pathlib import Path
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QIcon
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QIcon, QFont, QColor
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -25,7 +26,10 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QFormLayout,
     QMessageBox,
-    QInputDialog,
+    QTabWidget,
+    QWidget,
+    QCheckBox,
+    QSplitter,
 )
 
 CONFIG_DIR = Path.home() / ".config" / "unitray"
@@ -41,6 +45,47 @@ DEFAULT_CONFIG = {
         {"name": "Cloudflare Tunnel", "unit": "cloudflared.service"},
     ],
 }
+
+
+def query_systemd_services():
+    """Query all available systemd services on the system."""
+    services = {}
+
+    # 1. Discover all service unit files
+    res = subprocess.run(
+        ["systemctl", "list-unit-files", "--type=service", "--no-legend", "--no-pager"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    for line in res.stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 2:
+            unit = parts[0]
+            if "@" in unit and not unit.endswith("@.service"):
+                continue
+            services[unit] = {"unit": unit, "state": "inactive", "desc": ""}
+
+    # 2. Get active statuses and descriptions
+    res2 = subprocess.run(
+        ["systemctl", "list-units", "--type=service", "--all", "--no-legend", "--no-pager"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    for line in res2.stdout.splitlines():
+        parts = line.split(maxsplit=4)
+        if len(parts) >= 4:
+            unit = parts[0].replace("●", "").strip()
+            active_state = parts[2]
+            desc = parts[4] if len(parts) == 5 else ""
+            if unit in services:
+                services[unit]["state"] = active_state
+                services[unit]["desc"] = desc
+            else:
+                services[unit] = {"unit": unit, "state": active_state, "desc": desc}
+
+    return services
 
 
 def load_config():
@@ -79,20 +124,20 @@ def save_config(config):
 
 
 class ServiceEditDialog(QDialog):
-    def __init__(self, parent=None, title="Add Service", name="", unit=""):
+    def __init__(self, parent=None, title="Custom Service", name="", unit=""):
         super().__init__(parent)
         self.setWindowTitle(title)
-        self.setMinimumWidth(360)
+        self.setMinimumWidth(380)
 
         layout = QVBoxLayout(self)
-
         form = QFormLayout()
+
         self.name_edit = QLineEdit(name)
-        self.name_edit.setPlaceholderText("e.g. Redis")
+        self.name_edit.setPlaceholderText("e.g. My Custom Service")
         form.addRow("Display Name:", self.name_edit)
 
         self.unit_edit = QLineEdit(unit or ".service")
-        self.unit_edit.setPlaceholderText("e.g. redis.service")
+        self.unit_edit.setPlaceholderText("e.g. custom.service")
         form.addRow("systemd Unit:", self.unit_edit)
 
         layout.addLayout(form)
@@ -133,79 +178,42 @@ class ServiceEditDialog(QDialog):
 class UnitraySettingsWindow(QDialog):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Unitray Settings")
+        self.setWindowTitle("Unitray Settings — Systemd Service Controller")
         self.setWindowIcon(QIcon.fromTheme("preferences-system-services"))
-        self.resize(520, 520)
+        self.resize(750, 600)
 
         self.config_data = load_config()
+        self.all_services = query_systemd_services()
+
+        # Track monitored units in an ordered list: [{"name": ..., "unit": ...}]
+        self.monitored_services = list(self.config_data.get("services", []))
 
         layout = QVBoxLayout(self)
-        layout.setSpacing(12)
+        layout.setSpacing(10)
 
-        # Header Info
-        header = QLabel("<h3>Unitray Settings</h3>")
-        layout.addWidget(header)
+        # Tab Widget
+        self.tabs = QTabWidget()
+        layout.addWidget(self.tabs)
 
-        # Services Section
-        services_group = QGroupBox("Monitored systemd Services")
-        serv_layout = QVBoxLayout(services_group)
+        # Tab 1: Monitored Services (In Tray)
+        self.tab_monitored = QWidget()
+        self.init_monitored_tab()
+        self.tabs.addTab(self.tab_monitored, QIcon.fromTheme("favorite"), "Monitored in Tray")
 
-        self.table = QTableWidget(0, 2)
-        self.table.setHorizontalHeaderLabels(["Display Name", "systemd Unit Name"])
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setSelectionMode(QTableWidget.SingleSelection)
-        self.table.setAlternatingRowColors(True)
-        serv_layout.addWidget(self.table)
+        # Tab 2: System Service Explorer
+        self.tab_explorer = QWidget()
+        self.init_explorer_tab()
+        self.tabs.addTab(self.tab_explorer, QIcon.fromTheme("system-search"), f"All System Services ({len(self.all_services)})")
 
-        # Table Action Buttons
-        btn_row = QHBoxLayout()
+        # Tab 3: General Settings
+        self.tab_general = QWidget()
+        self.init_general_tab()
+        self.tabs.addTab(self.tab_general, QIcon.fromTheme("configure"), "General Options")
 
-        add_btn = QPushButton(QIcon.fromTheme("list-add"), "Add")
-        add_btn.clicked.connect(self.add_service)
-        btn_row.addWidget(add_btn)
-
-        edit_btn = QPushButton(QIcon.fromTheme("edit-entry"), "Edit")
-        edit_btn.clicked.connect(self.edit_service)
-        btn_row.addWidget(edit_btn)
-
-        remove_btn = QPushButton(QIcon.fromTheme("list-remove"), "Remove")
-        remove_btn.clicked.connect(self.remove_service)
-        btn_row.addWidget(remove_btn)
-
-        btn_row.addStretch()
-
-        up_btn = QPushButton(QIcon.fromTheme("go-up"), "Up")
-        up_btn.clicked.connect(self.move_up)
-        btn_row.addWidget(up_btn)
-
-        down_btn = QPushButton(QIcon.fromTheme("go-down"), "Down")
-        down_btn.clicked.connect(self.move_down)
-        btn_row.addWidget(down_btn)
-
-        serv_layout.addLayout(btn_row)
-        layout.addWidget(services_group)
-
-        # General Options Section
-        opts_group = QGroupBox("General Options")
-        form_layout = QFormLayout(opts_group)
-
-        self.interval_spin = QSpinBox()
-        self.interval_spin.setRange(1, 60)
-        self.interval_spin.setSuffix(" seconds")
-        self.interval_spin.setValue(self.config_data.get("refresh_interval_secs", 3))
-        form_layout.addRow("Polling Interval:", self.interval_spin)
-
-        self.icon_edit = QLineEdit(self.config_data.get("tray_icon", "preferences-system-services"))
-        form_layout.addRow("Tray Icon Theme Name:", self.icon_edit)
-
-        layout.addWidget(opts_group)
-
-        # Bottom Buttons
+        # Bottom Action Bar
         bottom_bar = QHBoxLayout()
 
-        editor_btn = QPushButton(QIcon.fromTheme("document-edit"), "Open Config File...")
+        editor_btn = QPushButton(QIcon.fromTheme("document-edit"), "Open Config in Text Editor")
         editor_btn.clicked.connect(self.open_in_editor)
         bottom_bar.addWidget(editor_btn)
 
@@ -215,81 +223,271 @@ class UnitraySettingsWindow(QDialog):
         cancel_btn.clicked.connect(self.reject)
         bottom_bar.addWidget(cancel_btn)
 
-        save_btn = QPushButton(QIcon.fromTheme("dialog-ok-apply"), "Save & Apply")
+        save_btn = QPushButton(QIcon.fromTheme("dialog-ok-apply"), "💾 Save & Apply")
         save_btn.setDefault(True)
         save_btn.clicked.connect(self.save_and_apply)
         bottom_bar.addWidget(save_btn)
 
         layout.addLayout(bottom_bar)
 
-        self.populate_services()
+    def init_monitored_tab(self):
+        layout = QVBoxLayout(self.tab_monitored)
+        layout.setContentsMargins(12, 12, 12, 12)
 
-    def populate_services(self):
-        self.table.setRowCount(0)
-        for s in self.config_data.get("services", []):
-            row = self.table.rowCount()
-            self.table.insertRow(row)
-            self.table.setItem(row, 0, QTableWidgetItem(s.get("name", "")))
-            self.table.setItem(row, 1, QTableWidgetItem(s.get("unit", "")))
+        info_label = QLabel(
+            "These services will appear in your top panel system tray. "
+            "Use the Up/Down buttons to reorder how they are displayed."
+        )
+        info_label.setWordWrap(True)
+        layout.addWidget(info_label)
 
-    def add_service(self):
-        dlg = ServiceEditDialog(self, title="Add New Service")
-        if dlg.exec() == QDialog.Accepted:
-            row = self.table.rowCount()
-            self.table.insertRow(row)
-            self.table.setItem(row, 0, QTableWidgetItem(dlg.name))
-            self.table.setItem(row, 1, QTableWidgetItem(dlg.unit))
+        self.monitored_table = QTableWidget(0, 3)
+        self.monitored_table.setHorizontalHeaderLabels(["Display Name", "systemd Unit", "Current Status"])
+        self.monitored_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.monitored_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.monitored_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.monitored_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.monitored_table.setSelectionMode(QTableWidget.SingleSelection)
+        self.monitored_table.setAlternatingRowColors(True)
+        layout.addWidget(self.monitored_table)
 
-    def edit_service(self):
-        row = self.table.currentRow()
-        if row < 0:
-            QMessageBox.information(self, "Notice", "Please select a service to edit.")
+        btn_bar = QHBoxLayout()
+
+        add_custom_btn = QPushButton(QIcon.fromTheme("list-add"), "Add Custom Unit...")
+        add_custom_btn.clicked.connect(self.add_custom_service)
+        btn_bar.addWidget(add_custom_btn)
+
+        edit_btn = QPushButton(QIcon.fromTheme("edit-entry"), "Edit Name...")
+        edit_btn.clicked.connect(self.edit_monitored_name)
+        btn_bar.addWidget(edit_btn)
+
+        remove_btn = QPushButton(QIcon.fromTheme("list-remove"), "Remove from Tray")
+        remove_btn.clicked.connect(self.remove_monitored_service)
+        btn_bar.addWidget(remove_btn)
+
+        btn_bar.addStretch()
+
+        up_btn = QPushButton(QIcon.fromTheme("go-up"), "Up")
+        up_btn.clicked.connect(self.move_up)
+        btn_bar.addWidget(up_btn)
+
+        down_btn = QPushButton(QIcon.fromTheme("go-down"), "Down")
+        down_btn.clicked.connect(self.move_down)
+        btn_bar.addWidget(down_btn)
+
+        layout.addLayout(btn_bar)
+        self.populate_monitored_table()
+
+    def init_explorer_tab(self):
+        layout = QVBoxLayout(self.tab_explorer)
+        layout.setContentsMargins(12, 12, 12, 12)
+
+        # Search Bar
+        search_box = QHBoxLayout()
+        search_label = QLabel("🔍 Search Services:")
+        search_box.addWidget(search_label)
+
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Filter by name (e.g. docker, maria, redis, postgres, nginx, cloudflare)...")
+        self.search_input.setClearButtonEnabled(True)
+        self.search_input.textChanged.connect(self.filter_explorer_table)
+        search_box.addWidget(self.search_input)
+
+        layout.addLayout(search_box)
+
+        # Explorer Table
+        self.explorer_table = QTableWidget(0, 4)
+        self.explorer_table.setHorizontalHeaderLabels(["Monitor in Tray", "Unit Name", "Status", "Description"])
+        self.explorer_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.explorer_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.explorer_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.explorer_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
+        self.explorer_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.explorer_table.setAlternatingRowColors(True)
+        layout.addWidget(self.explorer_table)
+
+        self.populate_explorer_table()
+
+    def init_general_tab(self):
+        layout = QVBoxLayout(self.tab_general)
+        layout.setContentsMargins(16, 16, 16, 16)
+
+        opts_group = QGroupBox("General Options")
+        form = QFormLayout(opts_group)
+
+        self.interval_spin = QSpinBox()
+        self.interval_spin.setRange(1, 60)
+        self.interval_spin.setSuffix(" seconds")
+        self.interval_spin.setValue(self.config_data.get("refresh_interval_secs", 3))
+        form.addRow("Status Refresh Polling Interval:", self.interval_spin)
+
+        self.icon_edit = QLineEdit(self.config_data.get("tray_icon", "preferences-system-services"))
+        form.addRow("System Tray Icon Theme Name:", self.icon_edit)
+
+        layout.addWidget(opts_group)
+        layout.addStretch()
+
+    def populate_monitored_table(self):
+        self.monitored_table.setRowCount(0)
+        for s in self.monitored_services:
+            unit = s.get("unit", "")
+            name = s.get("name", unit.replace(".service", "").capitalize())
+            info = self.all_services.get(unit, {})
+            state = info.get("state", "unknown")
+
+            row = self.monitored_table.rowCount()
+            self.monitored_table.insertRow(row)
+
+            # Name Item
+            name_item = QTableWidgetItem(name)
+            self.monitored_table.setItem(row, 0, name_item)
+
+            # Unit Item
+            unit_item = QTableWidgetItem(unit)
+            unit_item.setFlags(unit_item.flags() & ~Qt.ItemIsEditable)
+            self.monitored_table.setItem(row, 1, unit_item)
+
+            # Status Item
+            status_str = "🟢 Active" if state == "active" else "🔴 Inactive"
+            status_item = QTableWidgetItem(status_str)
+            status_item.setFlags(status_item.flags() & ~Qt.ItemIsEditable)
+            self.monitored_table.setItem(row, 2, status_item)
+
+    def populate_explorer_table(self):
+        self.explorer_table.setRowCount(0)
+        monitored_units = {s["unit"] for s in self.monitored_services}
+
+        # Sort services: monitored ones first, then alphabetical
+        sorted_units = sorted(
+            self.all_services.keys(),
+            key=lambda u: (0 if u in monitored_units else 1, u.lower())
+        )
+
+        for unit in sorted_units:
+            info = self.all_services[unit]
+            state = info.get("state", "inactive")
+            desc = info.get("desc", "")
+            is_monitored = unit in monitored_units
+
+            row = self.explorer_table.rowCount()
+            self.explorer_table.insertRow(row)
+
+            # Checkbox item for "Monitor in Tray"
+            check_item = QTableWidgetItem()
+            check_item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            check_item.setCheckState(Qt.Checked if is_monitored else Qt.Unchecked)
+            check_item.setTextAlignment(Qt.AlignCenter)
+            self.explorer_table.setItem(row, 0, check_item)
+
+            # Unit Name
+            unit_item = QTableWidgetItem(unit)
+            unit_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            self.explorer_table.setItem(row, 1, unit_item)
+
+            # Status
+            status_str = "🟢 Active" if state == "active" else "🔴 Inactive"
+            status_item = QTableWidgetItem(status_str)
+            status_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            self.explorer_table.setItem(row, 2, status_item)
+
+            # Description
+            desc_item = QTableWidgetItem(desc)
+            desc_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            self.explorer_table.setItem(row, 3, desc_item)
+
+        self.explorer_table.itemChanged.connect(self.on_explorer_checkbox_changed)
+
+    def filter_explorer_table(self, query):
+        query = query.strip().lower()
+        for r in range(self.explorer_table.rowCount()):
+            unit = self.explorer_table.item(r, 1).text().lower()
+            desc = self.explorer_table.item(r, 3).text().lower()
+            match = query in unit or query in desc
+            self.explorer_table.setRowHidden(r, not match)
+
+    def on_explorer_checkbox_changed(self, item):
+        if item.column() != 0:
             return
-        name = self.table.item(row, 0).text()
-        unit = self.table.item(row, 1).text()
 
-        dlg = ServiceEditDialog(self, title="Edit Service", name=name, unit=unit)
+        row = item.row()
+        unit = self.explorer_table.item(row, 1).text()
+        is_checked = item.checkState() == Qt.Checked
+
+        monitored_units = [s["unit"] for s in self.monitored_services]
+
+        if is_checked and unit not in monitored_units:
+            # Generate clean display name
+            display_name = unit.replace(".service", "").replace("-", " ").title()
+            self.monitored_services.append({"name": display_name, "unit": unit})
+            self.populate_monitored_table()
+        elif not is_checked and unit in monitored_units:
+            self.monitored_services = [s for s in self.monitored_services if s["unit"] != unit]
+            self.populate_monitored_table()
+
+    def add_custom_service(self):
+        dlg = ServiceEditDialog(self, title="Add Custom systemd Unit")
         if dlg.exec() == QDialog.Accepted:
-            self.table.setItem(row, 0, QTableWidgetItem(dlg.name))
-            self.table.setItem(row, 1, QTableWidgetItem(dlg.unit))
+            self.monitored_services.append({"name": dlg.name, "unit": dlg.unit})
+            self.populate_monitored_table()
+            # Update explorer checkbox if present
+            self.update_explorer_checkboxes()
 
-    def remove_service(self):
-        row = self.table.currentRow()
+    def edit_monitored_name(self):
+        row = self.monitored_table.currentRow()
+        if row < 0:
+            QMessageBox.information(self, "Notice", "Please select a service to edit its display name.")
+            return
+
+        current_name = self.monitored_table.item(row, 0).text()
+        unit = self.monitored_table.item(row, 1).text()
+
+        dlg = ServiceEditDialog(self, title="Edit Display Name", name=current_name, unit=unit)
+        if dlg.exec() == QDialog.Accepted:
+            self.monitored_services[row]["name"] = dlg.name
+            self.populate_monitored_table()
+
+    def remove_monitored_service(self):
+        row = self.monitored_table.currentRow()
         if row < 0:
             QMessageBox.information(self, "Notice", "Please select a service to remove.")
             return
-        name = self.table.item(row, 0).text()
-        reply = QMessageBox.question(
-            self,
-            "Confirm Remove",
-            f"Remove '{name}' from monitored services?",
-            QMessageBox.Yes | QMessageBox.No,
-        )
-        if reply == QMessageBox.Yes:
-            self.table.removeRow(row)
+
+        name = self.monitored_services[row]["name"]
+        unit = self.monitored_services[row]["unit"]
+
+        del self.monitored_services[row]
+        self.populate_monitored_table()
+        self.update_explorer_checkboxes()
+
+    def update_explorer_checkboxes(self):
+        monitored_units = {s["unit"] for s in self.monitored_services}
+        self.explorer_table.blockSignals(True)
+        for r in range(self.explorer_table.rowCount()):
+            unit = self.explorer_table.item(r, 1).text()
+            self.explorer_table.item(r, 0).setCheckState(
+                Qt.Checked if unit in monitored_units else Qt.Unchecked
+            )
+        self.explorer_table.blockSignals(False)
 
     def move_up(self):
-        row = self.table.currentRow()
+        row = self.monitored_table.currentRow()
         if row > 0:
-            self.swap_rows(row, row - 1)
-            self.table.selectRow(row - 1)
+            self.monitored_services[row], self.monitored_services[row - 1] = (
+                self.monitored_services[row - 1],
+                self.monitored_services[row],
+            )
+            self.populate_monitored_table()
+            self.monitored_table.selectRow(row - 1)
 
     def move_down(self):
-        row = self.table.currentRow()
-        if 0 <= row < self.table.rowCount() - 1:
-            self.swap_rows(row, row + 1)
-            self.table.selectRow(row + 1)
-
-    def swap_rows(self, r1, r2):
-        name1 = self.table.item(r1, 0).text()
-        unit1 = self.table.item(r1, 1).text()
-        name2 = self.table.item(r2, 0).text()
-        unit2 = self.table.item(r2, 1).text()
-
-        self.table.setItem(r1, 0, QTableWidgetItem(name2))
-        self.table.setItem(r1, 1, QTableWidgetItem(unit2))
-        self.table.setItem(r2, 0, QTableWidgetItem(name1))
-        self.table.setItem(r2, 1, QTableWidgetItem(unit1))
+        row = self.monitored_table.currentRow()
+        if 0 <= row < len(self.monitored_services) - 1:
+            self.monitored_services[row], self.monitored_services[row + 1] = (
+                self.monitored_services[row + 1],
+                self.monitored_services[row],
+            )
+            self.populate_monitored_table()
+            self.monitored_table.selectRow(row + 1)
 
     def open_in_editor(self):
         import os
@@ -299,17 +497,16 @@ class UnitraySettingsWindow(QDialog):
         os.system(f"xdg-open '{CONFIG_PATH}' &")
 
     def save_and_apply(self):
-        services = []
-        for r in range(self.table.rowCount()):
-            name = self.table.item(r, 0).text().strip()
-            unit = self.table.item(r, 1).text().strip()
-            if name and unit:
-                services.append({"name": name, "unit": unit})
+        # Sync any edited name cells from table
+        for r in range(self.monitored_table.rowCount()):
+            name = self.monitored_table.item(r, 0).text().strip()
+            if r < len(self.monitored_services):
+                self.monitored_services[r]["name"] = name
 
         new_config = {
             "refresh_interval_secs": self.interval_spin.value(),
             "tray_icon": self.icon_edit.text().strip() or "preferences-system-services",
-            "services": services,
+            "services": self.monitored_services,
         }
 
         try:
@@ -317,7 +514,8 @@ class UnitraySettingsWindow(QDialog):
             QMessageBox.information(
                 self,
                 "Success",
-                "Configuration saved successfully!\nUnitray has automatically applied the new settings.",
+                f"Configuration saved successfully with {len(self.monitored_services)} monitored services!\n\n"
+                "Unitray has automatically applied the changes to your system tray.",
             )
             self.accept()
         except Exception as e:
