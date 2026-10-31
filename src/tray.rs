@@ -81,8 +81,26 @@ impl Tray for UnitrayItem {
         format!("Unitray ({} active)", active_count)
     }
 
+    fn icon_theme_path(&self) -> String {
+        if let Some(data_dir) = dirs::data_dir() {
+            let user_icons = data_dir.join("icons");
+            if user_icons.exists() {
+                return user_icons.to_string_lossy().to_string();
+            }
+        }
+        String::new()
+    }
+
     fn icon_name(&self) -> String {
         self.icon_name.clone()
+    }
+
+    fn icon_pixmap(&self) -> Vec<ksni::Icon> {
+        if self.icon_name == "unitray" {
+            load_embedded_unitray_pixmaps()
+        } else {
+            Vec::new()
+        }
     }
 
     fn menu_about_to_show(&mut self) {
@@ -279,4 +297,32 @@ License: MIT License";
             .arg(content)
             .status();
     });
+}
+
+fn load_embedded_unitray_pixmaps() -> Vec<ksni::Icon> {
+    const ICON_PNG_22: &[u8] = include_bytes!("../data/icons/hicolor/22x22/apps/unitray.png");
+    const ICON_PNG_32: &[u8] = include_bytes!("../data/icons/hicolor/32x32/apps/unitray.png");
+
+    let mut result = Vec::new();
+    for bytes in [ICON_PNG_22, ICON_PNG_32] {
+        if let Ok(dyn_img) = image::load_from_memory(bytes) {
+            let rgba = dyn_img.to_rgba8();
+            let width = rgba.width() as i32;
+            let height = rgba.height() as i32;
+            let mut argb_data = Vec::with_capacity((width * height * 4) as usize);
+            for pixel in rgba.pixels() {
+                // ksni::Icon specifies ARGB32 network byte order (Big Endian: [A, R, G, B])
+                argb_data.push(pixel[3]); // Alpha
+                argb_data.push(pixel[0]); // Red
+                argb_data.push(pixel[1]); // Green
+                argb_data.push(pixel[2]); // Blue
+            }
+            result.push(ksni::Icon {
+                width,
+                height,
+                data: argb_data,
+            });
+        }
+    }
+    result
 }
