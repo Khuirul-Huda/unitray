@@ -1,14 +1,32 @@
 #!/usr/bin/env python3
 """
-Unitray Settings - Graphical Configuration Utility for Unitray
+Unitray Settings - Native Qt 6 Graphical Configuration Utility for Unitray
+Uses native Qt 6 Breeze style, fully integrated with KDE Plasma & Wayland.
 """
 
-import os
 import sys
 import tomllib
 from pathlib import Path
-import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import (
+    QApplication,
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QSpinBox,
+    QLineEdit,
+    QGroupBox,
+    QFormLayout,
+    QMessageBox,
+    QInputDialog,
+)
 
 CONFIG_DIR = Path.home() / ".config" / "unitray"
 CONFIG_PATH = CONFIG_DIR / "config.toml"
@@ -36,7 +54,7 @@ def load_config():
                     "services": data.get("services", []),
                 }
         except Exception as e:
-            messagebox.showwarning("Warning", f"Failed to parse config, using defaults:\n{e}")
+            QMessageBox.warning(None, "Warning", f"Failed to parse config, using defaults:\n{e}")
     return DEFAULT_CONFIG.copy()
 
 
@@ -60,250 +78,257 @@ def save_config(config):
         f.write("\n".join(lines))
 
 
-class ServiceDialog(tk.Toplevel):
-    def __init__(self, parent, title="Add Service", name="", unit=""):
+class ServiceEditDialog(QDialog):
+    def __init__(self, parent=None, title="Add Service", name="", unit=""):
         super().__init__(parent)
-        self.title(title)
-        self.resizable(False, False)
-        self.transient(parent)
-        self.grab_set()
+        self.setWindowTitle(title)
+        self.setMinimumWidth(360)
 
-        self.result = None
+        layout = QVBoxLayout(self)
 
-        frame = ttk.Frame(self, padding=16)
-        frame.pack(fill="both", expand=True)
+        form = QFormLayout()
+        self.name_edit = QLineEdit(name)
+        self.name_edit.setPlaceholderText("e.g. Redis")
+        form.addRow("Display Name:", self.name_edit)
 
-        ttk.Label(frame, text="Display Name:", font=("sans-serif", 10, "bold")).grid(
-            row=0, column=0, sticky="w", pady=(0, 4)
-        )
-        self.name_entry = ttk.Entry(frame, width=32)
-        self.name_entry.insert(0, name)
-        self.name_entry.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 12))
+        self.unit_edit = QLineEdit(unit or ".service")
+        self.unit_edit.setPlaceholderText("e.g. redis.service")
+        form.addRow("systemd Unit:", self.unit_edit)
 
-        ttk.Label(frame, text="systemd Unit Name:", font=("sans-serif", 10, "bold")).grid(
-            row=2, column=0, sticky="w", pady=(0, 4)
-        )
-        self.unit_entry = ttk.Entry(frame, width=32)
-        self.unit_entry.insert(0, unit or ".service")
-        self.unit_entry.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(0, 16))
+        layout.addLayout(form)
 
-        btn_box = ttk.Frame(frame)
-        btn_box.grid(row=4, column=0, columnspan=2, sticky="e")
+        btn_box = QHBoxLayout()
+        btn_box.addStretch()
 
-        ttk.Button(btn_box, text="Cancel", command=self.destroy).pack(side="right", padx=(8, 0))
-        ttk.Button(btn_box, text="Save", command=self.on_save).pack(side="right")
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+        btn_box.addWidget(cancel_btn)
 
-        self.name_entry.focus_set()
-        self.bind("<Return>", lambda e: self.on_save())
-        self.bind("<Escape>", lambda e: self.destroy())
+        save_btn = QPushButton("Save")
+        save_btn.setDefault(True)
+        save_btn.clicked.connect(self.validate_and_accept)
+        btn_box.addWidget(save_btn)
 
-    def on_save(self):
-        name = self.name_entry.get().strip()
-        unit = self.unit_entry.get().strip()
+        layout.addLayout(btn_box)
+
+    def validate_and_accept(self):
+        name = self.name_edit.text().strip()
+        unit = self.unit_edit.text().strip()
 
         if not name:
-            messagebox.showerror("Error", "Please enter a display name.", parent=self)
+            QMessageBox.warning(self, "Invalid Input", "Please enter a display name.")
             return
-        if not unit:
-            messagebox.showerror("Error", "Please enter a systemd unit name.", parent=self)
+        if not unit or unit == ".service":
+            QMessageBox.warning(self, "Invalid Input", "Please enter a valid systemd unit name.")
             return
 
-        if not unit.endswith(".service") and not unit.endswith(".socket") and not unit.endswith(".target"):
+        if not any(unit.endswith(ext) for ext in [".service", ".socket", ".target", ".timer"]):
             unit = f"{unit}.service"
 
-        self.result = {"name": name, "unit": unit}
-        self.destroy()
+        self.name = name
+        self.unit = unit
+        self.accept()
 
 
-class UnitraySettingsApp(tk.Tk):
+class UnitraySettingsWindow(QDialog):
     def __init__(self):
         super().__init__()
-        self.title("Unitray Settings")
-        self.geometry("520x560")
-        self.minsize(460, 480)
-
-        # Style configuration
-        self.style = ttk.Style(self)
-        try:
-            self.style.theme_use("clam")
-        except Exception:
-            pass
+        self.setWindowTitle("Unitray Settings")
+        self.setWindowIcon(QIcon.fromTheme("preferences-system-services"))
+        self.resize(520, 520)
 
         self.config_data = load_config()
 
-        self.create_widgets()
-        self.populate_data()
+        layout = QVBoxLayout(self)
+        layout.setSpacing(12)
 
-    def create_widgets(self):
-        container = ttk.Frame(self, padding=16)
-        container.pack(fill="both", expand=True)
-
-        # Header
-        header = ttk.Label(
-            container,
-            text="Unitray Configuration",
-            font=("sans-serif", 14, "bold"),
-        )
-        header.pack(anchor="w", pady=(0, 4))
-
-        subtext = ttk.Label(
-            container,
-            text=f"Managing: {CONFIG_PATH}",
-            font=("sans-serif", 8),
-            foreground="#666666",
-        )
-        subtext.pack(anchor="w", pady=(0, 16))
+        # Header Info
+        header = QLabel("<h3>Unitray Settings</h3>")
+        layout.addWidget(header)
 
         # Services Section
-        sec_label = ttk.Label(container, text="Monitored Services", font=("sans-serif", 10, "bold"))
-        sec_label.pack(anchor="w", pady=(0, 6))
+        services_group = QGroupBox("Monitored systemd Services")
+        serv_layout = QVBoxLayout(services_group)
 
-        list_frame = ttk.Frame(container)
-        list_frame.pack(fill="both", expand=True, pady=(0, 8))
+        self.table = QTableWidget(0, 2)
+        self.table.setHorizontalHeaderLabels(["Display Name", "systemd Unit Name"])
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SingleSelection)
+        self.table.setAlternatingRowColors(True)
+        serv_layout.addWidget(self.table)
 
-        columns = ("name", "unit")
-        self.tree = ttk.Treeview(list_frame, columns=columns, show="headings", selectmode="browse")
-        self.tree.heading("name", text="Service Name")
-        self.tree.heading("unit", text="systemd Unit")
-        self.tree.column("name", width=180, anchor="w")
-        self.tree.column("unit", width=240, anchor="w")
+        # Table Action Buttons
+        btn_row = QHBoxLayout()
 
-        scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scrollbar.set)
+        add_btn = QPushButton(QIcon.fromTheme("list-add"), "Add")
+        add_btn.clicked.connect(self.add_service)
+        btn_row.addWidget(add_btn)
 
-        self.tree.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        edit_btn = QPushButton(QIcon.fromTheme("edit-entry"), "Edit")
+        edit_btn.clicked.connect(self.edit_service)
+        btn_row.addWidget(edit_btn)
 
-        # Service Action Buttons
-        btn_bar = ttk.Frame(container)
-        btn_bar.pack(fill="x", pady=(0, 16))
+        remove_btn = QPushButton(QIcon.fromTheme("list-remove"), "Remove")
+        remove_btn.clicked.connect(self.remove_service)
+        btn_row.addWidget(remove_btn)
 
-        ttk.Button(btn_bar, text="➕ Add", command=self.add_service).pack(side="left", padx=(0, 6))
-        ttk.Button(btn_bar, text="✏️ Edit", command=self.edit_service).pack(side="left", padx=(0, 6))
-        ttk.Button(btn_bar, text="🗑️ Remove", command=self.remove_service).pack(side="left", padx=(0, 6))
-        ttk.Button(btn_bar, text="⬇️ Down", command=self.move_down).pack(side="right", padx=(6, 0))
-        ttk.Button(btn_bar, text="⬆️ Up", command=self.move_up).pack(side="right")
+        btn_row.addStretch()
 
-        # General Options Frame
-        opt_frame = ttk.LabelFrame(container, text="General Options", padding=12)
-        opt_frame.pack(fill="x", pady=(0, 16))
+        up_btn = QPushButton(QIcon.fromTheme("go-up"), "Up")
+        up_btn.clicked.connect(self.move_up)
+        btn_row.addWidget(up_btn)
 
-        # Refresh interval
-        ttk.Label(opt_frame, text="Refresh Interval (seconds):").grid(row=0, column=0, sticky="w", pady=4)
-        self.interval_spin = ttk.Spinbox(opt_frame, from_=1, to=60, width=8)
-        self.interval_spin.grid(row=0, column=1, sticky="w", padx=8, pady=4)
+        down_btn = QPushButton(QIcon.fromTheme("go-down"), "Down")
+        down_btn.clicked.connect(self.move_down)
+        btn_row.addWidget(down_btn)
 
-        # Tray Icon
-        ttk.Label(opt_frame, text="Tray Icon Theme Name:").grid(row=1, column=0, sticky="w", pady=4)
-        self.icon_entry = ttk.Entry(opt_frame, width=28)
-        self.icon_entry.grid(row=1, column=1, sticky="w", padx=8, pady=4)
+        serv_layout.addLayout(btn_row)
+        layout.addWidget(services_group)
 
-        # Footer Action Buttons
-        footer = ttk.Frame(container)
-        footer.pack(fill="x", side="bottom")
+        # General Options Section
+        opts_group = QGroupBox("General Options")
+        form_layout = QFormLayout(opts_group)
 
-        ttk.Button(footer, text="Open in Text Editor", command=self.open_in_editor).pack(side="left")
-        ttk.Button(footer, text="Cancel", command=self.destroy).pack(side="right", padx=(8, 0))
-        ttk.Button(footer, text="💾 Save & Apply", command=self.save_and_exit).pack(side="right")
+        self.interval_spin = QSpinBox()
+        self.interval_spin.setRange(1, 60)
+        self.interval_spin.setSuffix(" seconds")
+        self.interval_spin.setValue(self.config_data.get("refresh_interval_secs", 3))
+        form_layout.addRow("Polling Interval:", self.interval_spin)
 
-    def populate_data(self):
-        for item in self.tree.get_children():
-            self.tree.delete(item)
+        self.icon_edit = QLineEdit(self.config_data.get("tray_icon", "preferences-system-services"))
+        form_layout.addRow("Tray Icon Theme Name:", self.icon_edit)
 
+        layout.addWidget(opts_group)
+
+        # Bottom Buttons
+        bottom_bar = QHBoxLayout()
+
+        editor_btn = QPushButton(QIcon.fromTheme("document-edit"), "Open Config File...")
+        editor_btn.clicked.connect(self.open_in_editor)
+        bottom_bar.addWidget(editor_btn)
+
+        bottom_bar.addStretch()
+
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+        bottom_bar.addWidget(cancel_btn)
+
+        save_btn = QPushButton(QIcon.fromTheme("dialog-ok-apply"), "Save & Apply")
+        save_btn.setDefault(True)
+        save_btn.clicked.connect(self.save_and_apply)
+        bottom_bar.addWidget(save_btn)
+
+        layout.addLayout(bottom_bar)
+
+        self.populate_services()
+
+    def populate_services(self):
+        self.table.setRowCount(0)
         for s in self.config_data.get("services", []):
-            self.tree.insert("", "end", values=(s.get("name", ""), s.get("unit", "")))
-
-        self.interval_spin.set(str(self.config_data.get("refresh_interval_secs", 3)))
-        self.icon_entry.delete(0, "end")
-        self.icon_entry.insert(0, self.config_data.get("tray_icon", "preferences-system-services"))
+            row = self.table.rowCount()
+            self.table.insertRow(row)
+            self.table.setItem(row, 0, QTableWidgetItem(s.get("name", "")))
+            self.table.setItem(row, 1, QTableWidgetItem(s.get("unit", "")))
 
     def add_service(self):
-        dlg = ServiceDialog(self, title="Add Service")
-        self.wait_window(dlg)
-        if dlg.result:
-            self.tree.insert("", "end", values=(dlg.result["name"], dlg.result["unit"]))
+        dlg = ServiceEditDialog(self, title="Add New Service")
+        if dlg.exec() == QDialog.Accepted:
+            row = self.table.rowCount()
+            self.table.insertRow(row)
+            self.table.setItem(row, 0, QTableWidgetItem(dlg.name))
+            self.table.setItem(row, 1, QTableWidgetItem(dlg.unit))
 
     def edit_service(self):
-        selected = self.tree.selection()
-        if not selected:
-            messagebox.showinfo("Notice", "Please select a service from the list to edit.")
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.information(self, "Notice", "Please select a service to edit.")
             return
+        name = self.table.item(row, 0).text()
+        unit = self.table.item(row, 1).text()
 
-        item = selected[0]
-        name, unit = self.tree.item(item, "values")
-        dlg = ServiceDialog(self, title="Edit Service", name=name, unit=unit)
-        self.wait_window(dlg)
-        if dlg.result:
-            self.tree.item(item, values=(dlg.result["name"], dlg.result["unit"]))
+        dlg = ServiceEditDialog(self, title="Edit Service", name=name, unit=unit)
+        if dlg.exec() == QDialog.Accepted:
+            self.table.setItem(row, 0, QTableWidgetItem(dlg.name))
+            self.table.setItem(row, 1, QTableWidgetItem(dlg.unit))
 
     def remove_service(self):
-        selected = self.tree.selection()
-        if not selected:
-            messagebox.showinfo("Notice", "Please select a service from the list to remove.")
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.information(self, "Notice", "Please select a service to remove.")
             return
-
-        item = selected[0]
-        name = self.tree.item(item, "values")[0]
-        if messagebox.askyesno("Confirm", f"Remove '{name}' from monitored services?"):
-            self.tree.delete(item)
+        name = self.table.item(row, 0).text()
+        reply = QMessageBox.question(
+            self,
+            "Confirm Remove",
+            f"Remove '{name}' from monitored services?",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if reply == QMessageBox.Yes:
+            self.table.removeRow(row)
 
     def move_up(self):
-        selected = self.tree.selection()
-        if not selected:
-            return
-        item = selected[0]
-        idx = self.tree.index(item)
-        if idx > 0:
-            self.tree.move(item, "", idx - 1)
+        row = self.table.currentRow()
+        if row > 0:
+            self.swap_rows(row, row - 1)
+            self.table.selectRow(row - 1)
 
     def move_down(self):
-        selected = self.tree.selection()
-        if not selected:
-            return
-        item = selected[0]
-        idx = self.tree.index(item)
-        total = len(self.tree.get_children())
-        if idx < total - 1:
-            self.tree.move(item, "", idx + 1)
+        row = self.table.currentRow()
+        if 0 <= row < self.table.rowCount() - 1:
+            self.swap_rows(row, row + 1)
+            self.table.selectRow(row + 1)
+
+    def swap_rows(self, r1, r2):
+        name1 = self.table.item(r1, 0).text()
+        unit1 = self.table.item(r1, 1).text()
+        name2 = self.table.item(r2, 0).text()
+        unit2 = self.table.item(r2, 1).text()
+
+        self.table.setItem(r1, 0, QTableWidgetItem(name2))
+        self.table.setItem(r1, 1, QTableWidgetItem(unit2))
+        self.table.setItem(r2, 0, QTableWidgetItem(name1))
+        self.table.setItem(r2, 1, QTableWidgetItem(unit1))
 
     def open_in_editor(self):
+        import os
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         if not CONFIG_PATH.exists():
             save_config(self.config_data)
         os.system(f"xdg-open '{CONFIG_PATH}' &")
 
-    def save_and_exit(self):
+    def save_and_apply(self):
         services = []
-        for item in self.tree.get_children():
-            name, unit = self.tree.item(item, "values")
-            services.append({"name": name, "unit": unit})
-
-        try:
-            interval = int(self.interval_spin.get())
-            if interval < 1:
-                interval = 1
-        except ValueError:
-            interval = 3
-
-        tray_icon = self.icon_entry.get().strip() or "preferences-system-services"
+        for r in range(self.table.rowCount()):
+            name = self.table.item(r, 0).text().strip()
+            unit = self.table.item(r, 1).text().strip()
+            if name and unit:
+                services.append({"name": name, "unit": unit})
 
         new_config = {
-            "refresh_interval_secs": interval,
-            "tray_icon": tray_icon,
+            "refresh_interval_secs": self.interval_spin.value(),
+            "tray_icon": self.icon_edit.text().strip() or "preferences-system-services",
             "services": services,
         }
 
         try:
             save_config(new_config)
-            messagebox.showinfo("Success", "Settings saved successfully! Unitray will automatically update.")
-            self.destroy()
+            QMessageBox.information(
+                self,
+                "Success",
+                "Configuration saved successfully!\nUnitray has automatically applied the new settings.",
+            )
+            self.accept()
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to save configuration:\n{e}")
+            QMessageBox.critical(self, "Error", f"Failed to save configuration:\n{e}")
 
 
 def main():
-    app = UnitraySettingsApp()
-    app.mainloop()
+    app = QApplication(sys.argv)
+    window = UnitraySettingsWindow()
+    window.show()
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":
