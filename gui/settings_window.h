@@ -5,6 +5,7 @@
 #include <QLineEdit>
 #include <QSpinBox>
 #include <QComboBox>
+#include <QCheckBox>
 #include <QLabel>
 #include <QPushButton>
 #include <QTabWidget>
@@ -22,6 +23,7 @@ struct MonitoredService {
 struct AppConfig {
     int refreshIntervalSecs = 3;
     QString trayIcon = "unitray";
+    bool autostart = false;
     QVector<MonitoredService> services;
 };
 
@@ -87,6 +89,7 @@ private slots:
     void onCustomIconTextChanged(const QString &text);
     void onBrowseSystemIcons();
     void onOpenConfigFile();
+    void onShowAbout();
     void onSaveAndApply();
 
 private:
@@ -126,10 +129,12 @@ private:
     QLineEdit *m_editCustomIcon;
     QLabel *m_lblIconPreview;
     QPushButton *m_btnBrowseIcons;
+    QCheckBox *m_chkAutostart;
     QPushButton *m_btnOpenConfig;
 
     // Bottom bar
     QLabel *m_lblStatus;
+    QPushButton *m_btnAbout;
     QPushButton *m_btnSave;
     QPushButton *m_btnCancel;
 };

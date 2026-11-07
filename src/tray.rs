@@ -198,7 +198,7 @@ impl Tray for UnitrayItem {
                 label: "About Unitray...".into(),
                 icon_name: "help-about".into(),
                 activate: Box::new(|_| {
-                    show_about_dialog();
+                    open_about_ui();
                 }),
                 ..Default::default()
             }
@@ -219,84 +219,60 @@ impl Tray for UnitrayItem {
     }
 }
 
-fn open_settings_ui() {
-    std::thread::spawn(|| {
-        let custom_paths = [
-            dirs::home_dir().map(|h| h.join(".local/bin/unitray-settings")),
-            Some(std::path::PathBuf::from("/usr/local/bin/unitray-settings")),
-            Some(std::path::PathBuf::from("/usr/bin/unitray-settings")),
-        ];
-
-        for path_opt in custom_paths.into_iter().flatten() {
-            if path_opt.exists() {
-                if let Ok(mut child) = std::process::Command::new(&path_opt).spawn() {
-                    let _ = child.wait();
-                    return;
-                }
+fn resolve_settings_binary() -> std::path::PathBuf {
+    if let Ok(current_exe) = std::env::current_exe() {
+        if let Some(parent) = current_exe.parent() {
+            let candidate = parent.join("unitray-settings");
+            if candidate.exists() {
+                return candidate;
+            }
+            let candidate_build = parent.join("../build/unitray-settings");
+            if candidate_build.exists() {
+                return candidate_build;
             }
         }
+    }
 
-        if let Ok(mut child) = std::process::Command::new("unitray-settings").spawn() {
+    let standard_paths = [
+        dirs::home_dir().map(|h| h.join(".local/bin/unitray-settings")),
+        Some(std::path::PathBuf::from("/usr/local/bin/unitray-settings")),
+        Some(std::path::PathBuf::from("/usr/bin/unitray-settings")),
+    ];
+
+    for path_opt in standard_paths.into_iter().flatten() {
+        if path_opt.exists() {
+            return path_opt;
+        }
+    }
+
+    std::path::PathBuf::from("unitray-settings")
+}
+
+fn launch_gui_process(args: &[&str]) {
+    let args_owned: Vec<String> = args.iter().map(|s| s.to_string()).collect();
+    std::thread::spawn(move || {
+        let binary = resolve_settings_binary();
+        if let Ok(mut child) = std::process::Command::new(&binary).args(&args_owned).spawn() {
             let _ = child.wait();
             return;
         }
 
-        if let Some(config_path) = crate::config::resolve_config_path() {
-            let _ = std::process::Command::new("xdg-open")
-                .arg(config_path)
-                .spawn();
+        if args_owned.is_empty() {
+            if let Some(config_path) = crate::config::resolve_config_path() {
+                let _ = std::process::Command::new("xdg-open")
+                    .arg(config_path)
+                    .spawn();
+            }
         }
     });
 }
 
-fn show_about_dialog() {
-    std::thread::spawn(|| {
-        let title = "About Unitray";
-        let content = "\
-Unitray v0.1.0
-Lightweight Linux Systemd Service Controller
+fn open_settings_ui() {
+    launch_gui_process(&[]);
+}
 
-Author: Khuirul Huda (@Khuirul-Huda)
-Contact: hello@khuirulhuda.my.id
-GitHub: https://github.com/Khuirul-Huda/unitray
-
-License: MIT License";
-
-        // Try native KDE dialog first
-        let kdialog_result = std::process::Command::new("kdialog")
-            .arg("--title")
-            .arg(title)
-            .arg("--msgbox")
-            .arg(content)
-            .status();
-
-        if let Ok(status) = kdialog_result {
-            if status.success() {
-                return;
-            }
-        }
-
-        // Fallback to Zenity (GNOME / GTK desktop)
-        let zenity_result = std::process::Command::new("zenity")
-            .arg("--info")
-            .arg("--title")
-            .arg(title)
-            .arg("--text")
-            .arg(content)
-            .status();
-
-        if let Ok(status) = zenity_result {
-            if status.success() {
-                return;
-            }
-        }
-
-        // Fallback to Desktop Notification
-        let _ = std::process::Command::new("notify-send")
-            .arg(title)
-            .arg(content)
-            .status();
-    });
+fn open_about_ui() {
+    launch_gui_process(&["--about"]);
 }
 
 fn load_embedded_unitray_pixmaps() -> Vec<ksni::Icon> {

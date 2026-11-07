@@ -18,6 +18,8 @@ pub struct AppConfig {
     #[serde(default = "default_tray_icon")]
     pub tray_icon: String,
     #[serde(default)]
+    pub autostart: Option<bool>,
+    #[serde(default)]
     pub services: Vec<ServiceEntry>,
 }
 
@@ -34,6 +36,7 @@ impl Default for AppConfig {
         Self {
             refresh_interval_secs: DEFAULT_REFRESH_INTERVAL_SECS,
             tray_icon: DEFAULT_TRAY_ICON.to_string(),
+            autostart: Some(false),
             services: vec![
                 ServiceEntry {
                     name: "MariaDB".to_string(),
@@ -114,4 +117,40 @@ pub fn save_configuration(config: &AppConfig) -> Result<PathBuf, String> {
         .map_err(|e| format!("Failed to write config file {:?}: {}", config_path, e))?;
 
     Ok(config_path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_config_has_autostart_false() {
+        let config = AppConfig::default();
+        assert_eq!(config.autostart, Some(false));
+    }
+
+    #[test]
+    fn test_parse_autostart_config() {
+        let toml_data = r#"
+            refresh_interval_secs = 5
+            tray_icon = "test"
+            autostart = true
+            services = []
+        "#;
+        let config: AppConfig = toml::from_str(toml_data).unwrap();
+        assert_eq!(config.autostart, Some(true));
+        assert_eq!(config.refresh_interval_secs, 5);
+        assert_eq!(config.tray_icon, "test");
+    }
+
+    #[test]
+    fn test_backward_compatibility_without_autostart() {
+        let toml_data = r#"
+            refresh_interval_secs = 2
+            tray_icon = "unitray"
+            services = []
+        "#;
+        let config: AppConfig = toml::from_str(toml_data).unwrap();
+        assert_eq!(config.autostart, None);
+    }
 }

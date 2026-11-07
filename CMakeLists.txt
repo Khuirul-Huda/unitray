@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(unitray-settings VERSION 0.0.1 LANGUAGES CXX)
+project(unitray-settings VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -11,6 +11,11 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
 
 add_executable(unitray-settings
     gui/main.cpp
+    gui/app_icon.h
+    gui/autostart.h
+    gui/autostart.cpp
+    gui/about_dialog.h
+    gui/about_dialog.cpp
     gui/settings_window.h
     gui/settings_window.cpp
 )
